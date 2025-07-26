@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>インタラクティブ分析：参議院選挙 2019-2025年の地殻変動</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #f8fafc;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 400px;
+            max-height: 50vh;
+        }
+        .kpi-card {
+            background-color: white;
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            border: 1px solid #e2e8f0;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .kpi-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        .kpi-label {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+        .kpi-change {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        .section-intro {
+            font-size: 1.125rem;
+            color: #475569;
+            max-width: 48rem;
+            margin: 0 auto 3rem auto;
+            text-align: center;
+            line-height: 1.8;
+        }
+        .chart-card {
+            background-color: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            border: 1px solid #e2e8f0;
+        }
+        .chart-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .chart-description {
+            color: #64748b;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        
+        <header class="text-center my-12 md:my-16">
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-900 mb-4">政治の地殻変動</h1>
+            <p class="text-lg md:text-xl text-slate-600">インタラクティブ・レポートで読み解く参議院選挙 2019-2025</p>
+        </header>
+
+        <section class="my-16">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                <div class="kpi-card">
+                    <p class="kpi-label">2025年 投票率</p>
+                    <p class="kpi-value" style="color: #2563eb;">58.5<span class="text-2xl">%</span></p>
+                    <p class="kpi-change text-green-600 mt-2">+6.5 pt (vs 2022)</p>
+                </div>
+                <div class="kpi-card border-2 border-red-500">
+                    <p class="kpi-label">自民党 比例得票率 (2025)</p>
+                    <p class="kpi-value" style="color: #dc2626;">21.6<span class="text-2xl">%</span></p>
+                    <p class="kpi-change text-red-600 mt-2">-17.0 pt (vs 2019)</p>
+                </div>
+                <div class="kpi-card">
+                    <p class="kpi-label">参政党 比例議席 (2025)</p>
+                    <p class="kpi-value" style="color: #16a34a;">7<span class="text-2xl">議席</span></p>
+                    <p class="kpi-change text-green-600 mt-2">+6 議席 (vs 2022)</p>
+                </div>
+            </div>
+        </section>
+
+        <div id="content-sections">
+            <section id="section1" class="my-20 md:my-24 py-10">
+                <h2 class="section-title">1. 高まる有権者の関心：投票率の推移</h2>
+                <p class="section-intro">近年の選挙では投票率が上昇傾向にあります。特に2025年は、有権者の政治への関心が著しく高まったことを示しており、これが選挙結果に大きな影響を与えました。この変化は、国民が現状の政治に満足せず、変化を求めて積極的に投票行動に参加したことの表れです。</p>
+                <div class="chart-card">
+                    <h3 class="chart-title">参院選 投票率の変化 (2019-2025)</h3>
+                    <p class="chart-description">2019年の50%割れから一転、2025年には60%に迫る高い投票率を記録。有権者の意識の変化が、政治勢力図を塗り替える原動力となりました。</p>
+                    <div class="chart-container" style="height: 350px;">
+                        <canvas id="turnoutChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="section2" class="my-20 md:my-24 py-10">
+                <h2 class="section-title">2. 基盤の崩壊：自民党 比例得票率の急落</h2>
+                <p class="section-intro">かつて盤石と見られた自民党の支持基盤が、この数年で大きく揺らいでいます。特に、党の総合的な支持を全国レベルで反映する比例代表の得票率は、劇的な下降線をたどりました。2022年の「大勝」報道の裏で静かに進んでいた支持離れが、2025年に顕在化した形です。</p>
+                <div class="chart-card">
+                    <h3 class="chart-title">自民党 比例代表得票率の推移 (2019-2025)</h3>
+                    <p class="chart-description">2019年から2025年にかけて17ポイント近い下落を記録。この支持率の急落が、与党の過半数割れという歴史的な結果に直結しました。</p>
+                    <div class="chart-container" style="height: 350px;">
+                        <canvas id="ldpVoteChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="section3" class="my-20 md:my-24 py-10">
+                <h2 class="section-title">3. 新たな勢力図：2025年 比例代表の結果</h2>
+                <p class="section-intro">2025年の選挙は、日本の政治が多極化時代に突入したことを象徴しています。自民党が大きく票を減らす一方、国民民主党や参政党といった勢力が支持を拡大し、有権者の選択肢は大きく多様化しました。政治勢力図は、まさに一変したと言えるでしょう。</p>
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 items-center">
+                    <div class="lg:col-span-3 chart-card">
+                        <h3 class="chart-title">主要政党 比例代表得票率 (2025)</h3>
+                        <p class="chart-description">自民党は首位を維持したものの、国民民主党、参政党、立憲民主党が僅差で続く混戦模様に。有権者の支持が分散していることが明確にわかります。</p>
+                        <div class="chart-container" style="height: 450px;">
+                            <canvas id="prResults2025Chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2 chart-card">
+                        <h3 class="chart-title">2022年からの議席数変化</h3>
+                        <p class="chart-description">各党の勢いの変化が議席数に如実に表れています。参政党と国民民主党の躍進、そして自民党と日本維新の会の失速が対照的です。</p>
+                        <div class="chart-container" style="height: 450px;">
+                            <canvas id="seatChangeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="section4" class="my-20 md:my-24 py-10">
+                <h2 class="section-title">4. 保守票はどこへ？支持層の分裂</h2>
+                <p class="section-intro">自民党の得票率低下の核心には、「保守票の分裂」があります。これまで自民党に集まっていた保守的な価値観を持つ有権者の票が、より明確な主張を掲げる参政党や日本保守党へと明確に流出しました。これは、自民党が従来の支持層の期待に応えきれていないことの証左かもしれません。</p>
+                <div class="chart-card">
+                    <h3 class="chart-title">保守系政党 比例得票数の推移 (推定)</h3>
+                    <p class="chart-description">このグラフは、保守的な思想を持つ有権者の投票先の変化を示しています。2025年には自民党のシェアが大きく減少し、その分を新興政党が吸収した構図が鮮明です。</p>
+                    <div class="chart-container" style="height: 450px;">
+                        <canvas id="conservativeVoteChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="section5" class="my-20 md:my-24 py-10">
+                <h2 class="section-title">5. 未来を映す鏡：若年層の選択</h2>
+                <p class="section-intro">政治の未来は若者の選択にかかっています。2025年の選挙では、10代・20代の投票行動が従来の常識を覆す結果となりました。既存政党への不満と、新しい選択肢への期待が、この世代の投票行動から読み取れます。</p>
+                <div class="chart-card">
+                    <h3 class="chart-title">18歳〜29歳の支持政党 (2025年比例)</h3>
+                    <p class="chart-description">若年層では国民民主党がトップに立ち、参政党が続く結果に。自民党は3位に後退し、若者からの支持を大きく失っていることが浮き彫りになりました。</p>
+                    <div class="chart-container" style="height: 450px;">
+                        <canvas id="youthVoteChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <footer class="text-center mt-16 py-8 border-t border-slate-200">
+            <p class="text-slate-500">データ出典: 参議院選挙に関する各種報道および公表資料に基づく分析レポート</p>
+            <p class="text-slate-400 text-sm mt-2">
+                このインタラクティブ・レポートは提供された分析資料を基に作成されたものであり、特定の政治的立場を支持するものではありません。
+            </p>
+        </footer>
+
+    </div>
+
+    <script>
+        const tooltipTitleCallback = (tooltipItems) => {
+            const item = tooltipItems[0];
+            let label = item.chart.data.labels[item.dataIndex];
+            if (Array.isArray(label)) {
+                return label.join(' ');
+            }
+            return label;
+        };
+
+        const commonChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: {
+                            family: "'Inter', 'Noto Sans JP', sans-serif",
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        title: tooltipTitleCallback
+                    },
+                    bodyFont: {
+                        family: "'Inter', 'Noto Sans JP', sans-serif",
+                    },
+                    titleFont: {
+                        family: "'Inter', 'Noto Sans JP', sans-serif",
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        font: {
+                            family: "'Inter', 'Noto Sans JP', sans-serif",
+                        }
+                    }
+                },
+                y: {
+                    grid: { color: '#e2e8f0' },
+                    ticks: {
+                        font: {
+                            family: "'Inter', 'Noto Sans JP', sans-serif",
+                        }
+                    }
+                }
+            }
+        };
+        
+        const palette = {
+            ldp: '#2563eb',
+            cdp: '#60a5fa',
+            komei: '#f59e0b',
+            ishin: '#f97316',
+            jcp: '#ef4444',
+            kokumin: '#eab308',
+            reiwa: '#f472b6',
+            sansei: '#16a34a',
+            hoshu: '#8b5cf6',
+            other: '#94a3b8'
+        };
+
+        new Chart(document.getElementById('turnoutChart'), {
+            type: 'line',
+            data: {
+                labels: ['2019年', '2022年', '2025年'],
+                datasets: [{
+                    label: '投票率 (%)',
+                    data: [48.80, 52.05, 58.51],
+                    borderColor: palette.ldp,
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    fill: true,
+                    tension: 0.1,
+                    pointRadius: 5,
+                    pointBackgroundColor: palette.ldp,
+                }]
+            },
+            options: { ...commonChartOptions }
+        });
+
+        new Chart(document.getElementById('ldpVoteChart'), {
+            type: 'line',
+            data: {
+                labels: ['2019年', '2022年', '2025年'],
+                datasets: [{
+                    label: '自民党 比例得票率 (%)',
+                    data: [38.57, 34.4, 21.64],
+                    borderColor: '#dc2626',
+                    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                    fill: true,
+                    tension: 0.1,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#dc2626',
+                }]
+            },
+            options: { ...commonChartOptions }
+        });
+
+        new Chart(document.getElementById('prResults2025Chart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['自民党', '国民民主党', '参政党', '立憲民主党', '公明党', '日本維新の会', 'れいわ新選組', '日本保守党', 'その他'],
+                datasets: [{
+                    label: '得票率 (%)',
+                    data: [21.64, 12.88, 12.55, 12.5, 8.8, 7.39, 6.56, 5.04, 12.64],
+                    backgroundColor: [palette.ldp, palette.kokumin, palette.sansei, palette.cdp, palette.komei, palette.ishin, palette.reiwa, palette.hoshu, palette.other],
+                    hoverOffset: 8,
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            font: {
+                                family: "'Inter', 'Noto Sans JP', sans-serif",
+                            },
+                            boxWidth: 20,
+                            padding: 20,
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: tooltipTitleCallback
+                        }
+                    }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('seatChangeChart'), {
+            type: 'bar',
+            data: {
+                labels: ['参政党', '国民民主党', '日本保守党', 'れいわ', '自民党', '共産党', '日本維新の会'],
+                datasets: [{
+                    label: '2022年からの比例議席増減',
+                    data: [6, 4, 2, 1, -6, -1, -4],
+                    backgroundColor: (context) => {
+                        const value = context.raw;
+                        return value >= 0 ? '#22c55e' : '#ef4444';
+                    },
+                }]
+            },
+            options: {
+                ...commonChartOptions,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        const ldpVotes2022 = 18256244;
+        const ldpShare2022 = 34.4;
+        const ldpShare2019 = 38.57;
+        const estimatedLdpVotes2019 = (ldpVotes2022 / ldpShare2022) * ldpShare2019;
+
+        new Chart(document.getElementById('conservativeVoteChart'), {
+            type: 'bar',
+            data: {
+                labels: ['2019年', '2022年', '2025年'],
+                datasets: [
+                    {
+                        label: '自民党',
+                        data: [estimatedLdpVotes2019, 18256244, 12808306],
+                        backgroundColor: palette.ldp,
+                    },
+                    {
+                        label: '参政党',
+                        data: [0, 1768385, 7425053],
+                        backgroundColor: palette.sansei,
+                    },
+                    {
+                        label: '日本保守党',
+                        data: [0, 0, 2982093],
+                        backgroundColor: palette.hoshu,
+                    }
+                ]
+            },
+            options: {
+                ...commonChartOptions,
+                scales: {
+                    x: { stacked: true, grid: { display: false } },
+                    y: {
+                        stacked: true,
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000) return (value / 1000000) + 'M';
+                                if (value >= 1000) return (value / 1000) + 'K';
+                                return value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('youthVoteChart'), {
+            type: 'bar',
+            data: {
+                labels: ['国民民主党', '参政党', '自民党', '立憲民主党', '日本維新の会', '日本共産党', 'れいわ新選組'],
+                datasets: [{
+                    label: '18-29歳 支持率 (%)',
+                    data: [13.4, 12.5, 10.7, 8.9, 8.1, 6.3, 5.5],
+                    backgroundColor: [palette.kokumin, palette.sansei, palette.ldp, palette.cdp, palette.ishin, palette.jcp, palette.reiwa],
+                }]
+            },
+            options: {
+                ...commonChartOptions,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

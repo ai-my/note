@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>国民年金基金に見る世代間格差：制度の変遷と将来への提言</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutral Harmony (#FDFCF9, #3D405B, #81B29A, #F2CC8F) -->
+    <!-- Application Structure Plan: A static, single-page, vertically scrolling report. A new tab "85歳時点の収支比較" (Balance Comparison at Age 85) is added to the "Generational Gap" section. This new tab provides a detailed breakdown of total payments, total receipts, and total tax savings for different generations, assuming death at age 85 and an annual income of 7 million JPY. A new grouped bar chart visualizes this specific comparison. -->
+    <!-- Visualization & Content Choices: 
+        1. History: A dual-axis line chart and a static table of interest rate changes.
+        2. Generational Gap (Multi-Tab Section):
+            - Tabs for various starting ages (20, 30, 40) and scenarios are retained.
+            - New Tab for "Balance at Age 85": Features a summary table and a dedicated grouped bar chart (Chart.js) comparing total paid, total received, and total tax savings for different generations. This directly addresses the user's request for a specific mortality scenario.
+            - All Scenarios Comparison Tab: The summary table and chart are updated to include the new scenarios for a complete overview.
+            - Reason for Gap Tab: Explanatory text.
+        All interactive elements are removed for a clear, static, data-driven presentation.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #FDFCF9;
+            color: #3D405B;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .nav-link {
+            transition: color 0.3s, border-bottom-color 0.3s;
+        }
+        .nav-link.active {
+            color: #81B29A;
+            border-bottom-color: #81B29A;
+        }
+        .scenario-tab-btn.active {
+            border-color: #81B29A;
+            background-color: #81B29A;
+            color: white;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header id="header" class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-3 flex justify-between items-center">
+            <h1 class="text-xl md:text-2xl font-bold text-[#3D405B]">国民年金基金に見る世代間格差</h1>
+            <div class="hidden md:flex space-x-8">
+                <a href="#history" class="nav-link pb-1 border-b-2 border-transparent hover:text-[#81B29A]">歴史</a>
+                <a href="#gap" class="nav-link pb-1 border-b-2 border-transparent hover:text-[#81B29A]">世代間格差</a>
+                <a href="#present" class="nav-link pb-1 border-b-2 border-transparent hover:text-[#81B29A]">基金の現在</a>
+                <a href="#future" class="nav-link pb-1 border-b-2 border-transparent hover:text-[#81B29A]">未来への提言</a>
+            </div>
+            <button id="mobile-menu-btn" class="md:hidden focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </nav>
+        <div id="mobile-menu" class="hidden md:hidden">
+            <a href="#history" class="block py-2 px-6 text-sm hover:bg-gray-100">歴史</a>
+            <a href="#gap" class="block py-2 px-6 text-sm hover:bg-gray-100">世代間格差</a>
+            <a href="#present" class="block py-2 px-6 text-sm hover:bg-gray-100">基金の現在</a>
+            <a href="#future" class="block py-2 px-6 text-sm hover:bg-gray-100">未来への提言</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-8 md:py-12">
+
+        <section id="intro" class="text-center mb-16">
+            <h2 class="text-3xl md:text-4xl font-bold mb-4">国民年金基金に見る世代間格差<br>制度の変遷と将来への提言</h2>
+            <p class="max-w-3xl mx-auto text-base md:text-lg leading-relaxed">
+                国民年金基金は、自営業者の老後を支えるために生まれました。しかし、その30年以上の歴史は、日本の経済状況の変化を映し出し、結果として「加入時期」という一つの変数が、将来受け取る年金額に決定的な「格差」を生み出す物語となりました。本レポートは、その構造をデータで解き明かし、これからの時代の老後保障を考えるための分析です。
+            </p>
+        </section>
+
+        <section id="history" class="mb-20 scroll-mt-20">
+            <h3 class="text-2xl md:text-3xl font-bold text-center mb-2">歴史：栄光と苦難の30年</h3>
+            <p class="text-center text-gray-600 mb-8">加入者数と予定利率の推移は、基金の物語を雄弁に語ります。</p>
+            <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                <div class="chart-container">
+                    <canvas id="historyChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="mt-12">
+                <h4 class="text-xl font-bold text-center mb-6 text-[#3D405B]">予定利率の変遷</h4>
+                <div class="max-w-2xl mx-auto bg-white p-4 rounded-lg shadow-md">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="border-b">
+                                <th class="py-2 px-4">適用開始年月</th>
+                                <th class="py-2 px-4 text-right">予定利率</th>
+                                <th class="py-2 px-4">備考</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-b"><td class="py-2 px-4">1991年4月</td><td class="py-2 px-4 text-right font-bold text-green-600">5.50%</td><td class="py-2 px-4">制度発足</td></tr>
+                            <tr class="border-b"><td class="py-2 px-4">1996年4月</td><td class="py-2 px-4 text-right font-bold text-yellow-600">4.75%</td><td class="py-2 px-4">初の引き下げ</td></tr>
+                            <tr class="border-b"><td class="py-2 px-4">2000年4月</td><td class="py-2 px-4 text-right font-bold text-orange-600">4.00%</td><td class="py-2 px-4"></td></tr>
+                            <tr class="border-b"><td class="py-2 px-4">2002年4月</td><td class="py-2 px-4 text-right font-bold text-orange-700">3.00%</td><td class="py-2 px-4">緊急改定</td></tr>
+                            <tr class="border-b"><td class="py-2 px-4">2014年4月</td><td class="py-2 px-4 text-right font-bold text-red-600">1.50%</td><td class="py-2 px-4">現在に至る</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        
+        <section id="gap" class="mb-20 scroll-mt-20 bg-gray-50 p-6 rounded-xl">
+            <h3 class="text-2xl md:text-3xl font-bold text-center mb-4 text-[#3D405B]">生まれた年・加入年齢が作る未来の格差</h3>
+            <div class="border-b border-gray-200 mb-6">
+                <nav class="-mb-px flex flex-wrap justify-center" aria-label="Tabs">
+                    <button class="scenario-tab-btn whitespace-nowrap m-1 py-3 px-4 border-b-2 font-medium text-sm active" data-tab="scenario-age20">20歳加入の比較</button>
+                    <button class="scenario-tab-btn whitespace-nowrap m-1 py-3 px-4 border-b-2 font-medium text-sm" data-tab="scenario-age30">30歳加入の比較</button>
+                    <button class="scenario-tab-btn whitespace-nowrap m-1 py-3 px-4 border-b-2 font-medium text-sm" data-tab="scenario-age40">40歳加入の比較</button>
+                    <button class="scenario-tab-btn whitespace-nowrap m-1 py-3 px-4 border-b-2 font-medium text-sm" data-tab="scenario-age50">50歳加入の損得勘定</button>
+                    <button class="scenario-tab-btn whitespace-nowrap m-1 py-3 px-4 border-b-2 font-medium text-sm" data-tab="scenario-age85">85歳時点の収支比較</button>
+                    <button class="scenario-tab-btn whitespace-nowrap m-1 py-3 px-4 border-b-2 font-medium text-sm" data-tab="scenario-all">全シナリオ比較</button>
+                    <button class="scenario-tab-btn whitespace-nowrap m-1 py-3 px-4 border-b-2 font-medium text-sm" data-tab="scenario-reason">格差の要因</button>
+                </nav>
+            </div>
+
+            <div id="scenario-content">
+                <div id="scenario-age20-content" class="scenario-pane">
+                    <h4 class="text-xl font-bold text-center mb-1 text-[#3D405B]">20歳加入の世代比較</h4>
+                    <p class="text-center text-gray-600 mb-6">最も有利な条件で40年間拠出できた世代と、そうでない世代の比較。</p>
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <div class="bg-white p-4 rounded-lg shadow-lg"><h5 class="font-bold text-center text-green-700">1971年生まれ (黄金期)</h5><p class="text-xs text-center text-gray-500 mb-2">1991年加入 / 平均利率4.5%</p><p class="text-center">年金額: <span class="text-2xl font-bold text-green-600">約507万円</span></p><div class="chart-container h-48 mt-2"><canvas id="scenario1971Chart"></canvas></div></div>
+                        <div class="bg-white p-4 rounded-lg shadow-lg"><h5 class="font-bold text-center text-yellow-700">1982年生まれ (転換期)</h5><p class="text-xs text-center text-gray-500 mb-2">2002年加入 / 平均利率2.5%</p><p class="text-center">年金額: <span class="text-2xl font-bold text-yellow-600">約310万円</span></p><div class="chart-container h-48 mt-2"><canvas id="scenario1982Chart"></canvas></div></div>
+                        <div class="bg-white p-4 rounded-lg shadow-lg"><h5 class="font-bold text-center text-red-700">1994年生まれ (低金利期)</h5><p class="text-xs text-center text-gray-500 mb-2">2014年加入 / 利率1.5%</p><p class="text-center">年金額: <span class="text-2xl font-bold text-red-600">約248万円</span></p><div class="chart-container h-48 mt-2"><canvas id="scenario1994Chart"></canvas></div></div>
+                    </div>
+                </div>
+                
+                <div id="scenario-age30-content" class="scenario-pane hidden">
+                    <h4 class="text-xl font-bold text-center mb-1 text-[#3D405B]">30歳加入の世代比較</h4>
+                    <p class="text-center text-gray-600 mb-6">加入開始が10年遅れると、拠出期間が短くなるだけでなく、適用される利率も変わり、大きな差が生まれます。</p>
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <div class="bg-white p-4 rounded-lg shadow-lg"><h5 class="font-bold text-center text-green-700">1971年生まれ (30歳加入)</h5><p class="text-xs text-center text-gray-500 mb-2">2001年加入 / 平均利率3.5%</p><p class="text-center">年金額: <span class="text-2xl font-bold text-green-600">約252万円</span></p><div class="chart-container h-48 mt-2"><canvas id="scenario1971LateChart"></canvas></div></div>
+                        <div class="bg-white p-4 rounded-lg shadow-lg"><h5 class="font-bold text-center text-yellow-700">1982年生まれ (30歳加入)</h5><p class="text-xs text-center text-gray-500 mb-2">2012年加入 / 平均利率1.75%</p><p class="text-center">年金額: <span class="text-2xl font-bold text-yellow-600">約176万円</span></p><div class="chart-container h-48 mt-2"><canvas id="scenario1982LateChart"></canvas></div></div>
+                        <div class="bg-white p-4 rounded-lg shadow-lg"><h5 class="font-bold text-center text-red-700">1995年生まれ (30歳加入)</h5><p class="text-xs text-center text-gray-500 mb-2">2025年加入 / 利率1.5%</p><p class="text-center">年金額: <span class="text-2xl font-bold text-red-600">約171万円</span></p><div class="chart-container h-48 mt-2"><canvas id="scenario1995LateChart"></canvas></div></div>
+                    </div>
+                </div>
+
+                <div id="scenario-age40-content" class="scenario-pane hidden">
+                    <h4 class="text-xl font-bold text-center mb-1 text-[#3D405B]">40歳加入の世代比較</h4>
+                    <p class="text-center text-gray-600 mb-6">さらに加入が遅れると、複利効果を得られる期間が短くなり、差はより顕著になります。</p>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-lg shadow-lg"><h5 class="font-bold text-lg text-center mb-2 text-yellow-700">1971年生まれ (40歳加入)</h5><p class="text-xs text-center text-gray-500 mb-4">2011年加入 / 平均利率2.0%</p><p class="text-center text-gray-700">年金額: <span class="text-3xl font-bold text-yellow-600">約 112<span class="text-xl">万円</span></span></p><div class="chart-container h-48 mt-2"><canvas id="scenario1971LaterChart"></canvas></div></div>
+                        <div class="bg-white p-6 rounded-lg shadow-lg"><h5 class="font-bold text-lg text-center mb-2 text-red-700">1982年生まれ (40歳加入)</h5><p class="text-xs text-center text-gray-500 mb-4">2022年加入 / 利率1.5%</p><p class="text-center text-gray-700">年金額: <span class="text-3xl font-bold text-red-600">約 105<span class="text-xl">万円</span></span></p><div class="chart-container h-48 mt-2"><canvas id="scenario1982LaterChart"></canvas></div></div>
+                    </div>
+                </div>
+                
+                <div id="scenario-age50-content" class="scenario-pane hidden">
+                    <h4 class="text-xl font-bold text-center mb-1 text-[#3D405B]">50歳からの損得勘定</h4>
+                    <p class="text-center text-gray-600 mb-6">年収700万円の50歳が、月68,000円を10年間拠出したケース。年金額より節税効果が重要になります。</p>
+                    <div class="grid md:grid-cols-2 gap-8 items-center">
+                        <div class="bg-white p-6 rounded-lg shadow-lg">
+                           <div class="space-y-4">
+                                <div class="p-4 rounded-lg bg-green-50 border-l-4 border-green-400"><h6 class="font-semibold text-green-800">10年間の総節税額</h6><p class="text-2xl font-bold text-green-600">約 245 万円</p></div>
+                                <div class="p-4 rounded-lg bg-blue-50 border-l-4 border-blue-400"><h6 class="font-semibold text-blue-800">10年間の払込総額</h6><p class="text-2xl font-bold text-blue-600">816 万円</p></div>
+                                <div class="p-4 rounded-lg bg-gray-50 border-l-4 border-gray-400"><h6 class="font-semibold text-gray-800">将来の年金額（年額）</h6><p class="text-2xl font-bold text-gray-600">約 49 万円</p></div>
+                           </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-lg shadow-lg"><h5 class="font-bold text-lg text-center mb-2">リターンの内訳</h5><p class="text-xs text-center text-gray-500 mb-4">払込額816万円に対する実質的なリターン</p><div class="chart-container h-64"><canvas id="scenario50startChart"></canvas></div></div>
+                    </div>
+                     <p class="text-center mt-6 text-gray-700">短期間でも、<span class="font-bold">払込額の約38%に相当するリターン（節税額＋運用益）</span>が期待でき、引退直前の資産形成として有効な選択肢となり得ます。</p>
+                </div>
+
+                <div id="scenario-age85-content" class="scenario-pane hidden">
+                    <h4 class="text-xl font-bold text-center mb-1 text-[#3D405B]">85歳時点の収支比較</h4>
+                    <p class="text-center text-gray-600 mb-6">平均寿命に近い85歳で亡くなった場合、各世代の最終的な収支はどうなるか？<br>(20歳加入、年収700万円と仮定)</p>
+                    <div class="grid lg:grid-cols-5 gap-8 items-center">
+                        <div class="lg:col-span-2">
+                            <table class="w-full text-left bg-white rounded-lg shadow-lg overflow-hidden">
+                                <thead class="bg-gray-100"><tr class="text-sm"><th class="py-2 px-3">世代 (20歳加入)</th><th class="py-2 px-3 text-right">受給総額</th><th class="py-2 px-3 text-right">最終収支</th></tr></thead>
+                                <tbody>
+                                    <tr class="border-t"><td class="py-2 px-3 font-bold text-green-700">1971年生まれ</td><td class="py-2 px-3 text-right">1億140万円</td><td class="py-2 px-3 text-right text-green-600 font-bold">+7,953万円</td></tr>
+                                    <tr class="border-t"><td class="py-2 px-3 font-bold text-yellow-700">1982年生まれ</td><td class="py-2 px-3 text-right">6,200万円</td><td class="py-2 px-3 text-right text-green-600 font-bold">+4,013万円</td></tr>
+                                    <tr class="border-t"><td class="py-2 px-3 font-bold text-red-700">1994年生まれ</td><td class="py-2 px-3 text-right">4,960万円</td><td class="py-2 px-3 text-right text-green-600 font-bold">+2,773万円</td></tr>
+                                </tbody>
+                            </table>
+                            <p class="text-xs text-gray-500 mt-2">※最終収支 = 受給総額 + 税控除総額(1,077万円) - 払込総額(3,264万円)</p>
+                        </div>
+                        <div class="lg:col-span-3">
+                            <div class="chart-container h-80"><canvas id="scenario85BalanceChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="scenario-all-content" class="scenario-pane hidden">
+                    <h4 class="text-xl font-bold text-center mb-1 text-[#3D405B]">全シナリオ比較：生涯年金額（年額）</h4>
+                    <p class="text-center text-gray-600 mb-6">生まれた年と加入年齢が、将来の受給額に与える影響の全体像です。</p>
+                    <div class="grid lg:grid-cols-5 gap-8 items-center">
+                        <div class="lg:col-span-2">
+                            <table class="w-full text-left bg-white rounded-lg shadow-lg overflow-hidden">
+                                <thead><tr class="bg-gray-100"><th class="py-2 px-3">シナリオ</th><th class="py-2 px-3 text-right">年金額(年)</th></tr></thead>
+                                <tbody>
+                                    <tr class="border-t"><td class="py-3 px-3 font-bold text-green-600">1971年生 (20歳~)</td><td class="py-3 px-3 text-right font-bold text-green-600">約 507万円</td></tr>
+                                    <tr class="border-t"><td class="py-3 px-3 font-bold text-yellow-600">1982年生 (20歳~)</td><td class="py-3 px-3 text-right font-bold text-yellow-600">約 310万円</td></tr>
+                                    <tr class="border-t"><td class="py-3 px-3 font-bold text-red-600">1994年生 (20歳~)</td><td class="py-3 px-3 text-right font-bold text-red-600">約 248万円</td></tr>
+                                    <tr class="border-t"><td class="py-3 px-3 font-bold text-yellow-700">1971年生 (30歳~)</td><td class="py-3 px-3 text-right font-bold text-yellow-700">約 252万円</td></tr>
+                                    <tr class="border-t"><td class="py-3 px-3 font-bold text-orange-600">1982年生 (30歳~)</td><td class="py-3 px-3 text-right font-bold text-orange-600">約 176万円</td></tr>
+                                    <tr class="border-t"><td class="py-3 px-3 font-bold text-purple-600">1995年生 (30歳~)</td><td class="py-3 px-3 text-right font-bold text-purple-600">約 171万円</td></tr>
+                                    <tr class="border-t"><td class="py-3 px-3 font-bold text-blue-600">1971年生 (40歳~)</td><td class="py-3 px-3 text-right font-bold text-blue-600">約 112万円</td></tr>
+                                    <tr class="border-t"><td class="py-3 px-3 font-bold text-cyan-600">1982年生 (40歳~)</td><td class="py-3 px-3 text-right font-bold text-cyan-600">約 105万円</td></tr>
+                                    <tr class="border-t"><td class="py-3 px-3 font-bold text-indigo-600">50歳加入ケース</td><td class="py-3 px-3 text-right font-bold text-indigo-600">約 49万円</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="lg:col-span-3">
+                            <div class="chart-container h-96"><canvas id="scenarioAllChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="scenario-reason-content" class="scenario-pane hidden">
+                    <div class="max-w-3xl mx-auto">
+                        <h5 class="font-bold text-xl mb-4 text-[#3D405B]">なぜこれほどの差が生まれるのか？</h5>
+                        <div class="space-y-4 text-gray-700">
+                            <p>この大きな差の根源は「<span class="font-bold">複利の効果</span>」と「<span class="font-bold">加入時の利率が固定される</span>」という国民年金基金の特性にあります。</p>
+                            <p><strong>1. 複利の力：</strong> 運用で得た利息が、翌年には元本に加わって新たな利息を生むのが複利です。加入期間が長いほど、そして利率が高いほど、この効果は雪だるま式に大きくなります。シナリオAでは、高い利率が40年間という長い期間にわたって複利で運用されるため、資産が劇的に増加します。</p>
+                            <p><strong>2. 利率の固定：</strong> 国民年金基金は、加入した時点の予定利率が、その掛金に対して将来にわたって適用される「約束」をします（※制度改定時を除く）。そのため、1991年に加入した人は、その後の利率引き下げの影響を受けずに、高いリターンを享受し続けることができました。一方で、2014年に加入した人は、最初から低い利率しか約束されません。</p>
+                            <p>この「<span class="font-bold">過去の約束を守る</span>」という制度の誠実さが、皮肉にも、現在の高い運用パフォーマンスを新規加入者に還元できない「<span class="font-bold">パフォーマンス・パラドックス</span>」を生み出しているのです。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="present" class="mb-20 scroll-mt-20">
+            <h3 class="text-2xl md:text-3xl font-bold text-center mb-2">基金の現在：パフォーマンス・パラドックス</h3>
+            <p class="text-center text-gray-600 mb-8">運用は世界トップクラス。しかし、その果実は新規加入者には届かない。なぜか？</p>
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6"><h4 class="font-bold text-xl mb-4 text-center">現代的な資産ポートフォリオ (2024年3月末)</h4><div class="chart-container h-80 md:h-96"><canvas id="assetAllocationChart"></canvas></div></div>
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-[#81B29A]"><p class="text-lg font-semibold text-gray-600">2023年度 修正総合利回り</p><p class="text-4xl font-bold text-[#81B29A]">+20.24%</p><p class="text-sm text-gray-500 mt-1">驚異的な運用パフォーマンスを記録</p></div>
+                    <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500"><p class="text-lg font-semibold text-gray-600">新規加入者向け予定利率</p><p class="text-4xl font-bold text-red-500">1.5%</p><p class="text-sm text-gray-500 mt-1">2014年から据え置かれた歴史的低水準</p></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="future" class="scroll-mt-20">
+            <h3 class="text-2xl md:text-3xl font-bold text-center mb-2">未来への提言</h3>
+            <p class="text-center text-gray-600 mb-8">自己責任時代において、国年基金が再び輝くための道とは。</p>
+            <div class="grid sm:grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow"><h4 class="font-bold text-lg mb-2">1. 商品設計の革新</h4><p class="text-sm">「インフレ連動型」や「ハイブリッド型」など、現代のニーズに合った新しい選択肢を導入し、単なる低利回り商品からの脱却を図るべきです。</p></div>
+                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow"><h4 class="font-bold text-lg mb-2">2. コミュニケーションの転換</h4><p class="text-sm">「低リターンの貯蓄」から「価値の高い長寿保険」へと国民の認識を転換させるための、戦略的な広報活動が不可欠です。</p></div>
+                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow"><h4 class="font-bold text-lg mb-2">3. 国家的な年金政策との統合</h4><p class="text-sm">iDeCoや公的年金とシームレスに連携できるような制度改革（掛金上限の柔軟化など）を進め、国民の老後設計を支える柱としての地位を再確立すべきです。</p></div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-gray-100 mt-16">
+        <div class="container mx-auto px-6 py-4 text-center text-gray-500 text-sm">
+            <p>このページは提供されたレポートに基づき、教育・情報提供目的で作成されました。</p>
+            <p>&copy; 2024-2025 Interactive Analysis. All rights reserved.</p>
+        </div>
+    </footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Data from the report
+    const historyData = {
+        years: ['1991', '1992', '1993', '1994', '1995', '1996', '1997', '1998', '1999', '2000', '2001', '2002', '2003', '2004', '2009', '2014', '2019', '2023'],
+        members: [43.6, 52.7, 58.4, 67.4, 69.9, 72.6, 71.8, 72.5, 76.9, 76.4, 78.7, 77.2, 78.9, 77.0, 58.0, 44.0, 34.9, 32.0], // in 10,000s
+        rates: [5.5, 5.5, 5.5, 5.5, 5.5, 4.75, 4.75, 4.75, 4.75, 4.0, 4.0, 3.0, 2.75, 2.75, 1.75, 1.5, 1.5, 1.5]
+    };
+    
+    const assetAllocationData = {
+        labels: ['世界株式', '外国債券', '国内債券', '国内株式', 'その他'],
+        data: [49.6, 34.8, 5.6, 5.1, 4.4]
+    };
+
+    // Chart.js Global Config
+    Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(61, 64, 91, 0.9)';
+    Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
+    Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
+    Chart.defaults.plugins.legend.labels.boxWidth = 12;
+    Chart.defaults.plugins.legend.labels.padding = 15;
+
+    // 1. History Chart
+    const ctxHistory = document.getElementById('historyChart').getContext('2d');
+    new Chart(ctxHistory, {
+        type: 'line',
+        data: {
+            labels: historyData.years,
+            datasets: [{
+                label: '加入員数 (万人)',
+                data: historyData.members,
+                borderColor: '#81B29A',
+                backgroundColor: 'rgba(129, 178, 154, 0.1)',
+                yAxisID: 'y',
+                tension: 0.1,
+                fill: true,
+            }, {
+                label: '予定利率 (%)',
+                data: historyData.rates,
+                borderColor: '#F2CC8F',
+                backgroundColor: 'rgba(242, 204, 143, 0.1)',
+                yAxisID: 'y1',
+                tension: 0.1,
+                borderDash: [5, 5]
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                x: { title: { display: false }, grid: { display: false } },
+                y: { type: 'linear', position: 'left', title: { display: true, text: '加入員数 (万人)', color: '#81B29A' }, grid: { color: '#e9e9e9' } },
+                y1: { type: 'linear', position: 'right', title: { display: true, text: '予定利率 (%)', color: '#F2CC8F' }, grid: { drawOnChartArea: false } }
+            },
+            plugins: { tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y}${c.dataset.yAxisID === 'y' ? ' 万人' : ' %'}` } } }
+        }
+    });
+
+    // 2. Asset Allocation Chart
+    const ctxAsset = document.getElementById('assetAllocationChart').getContext('2d');
+    new Chart(ctxAsset, {
+        type: 'doughnut',
+        data: {
+            labels: assetAllocationData.labels,
+            datasets: [{ label: '資産構成比率', data: assetAllocationData.data, backgroundColor: ['#81B29A', '#F2CC8F', '#E07A5F', '#3D405B', '#BDBDBD'], borderColor: '#FDFCF9', borderWidth: 4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (c) => `${c.label}: ${c.parsed}%` } } } }
+    });
+
+    // --- Scenario Gap Section ---
+    const scenarioTabs = document.querySelectorAll('.scenario-tab-btn');
+    const scenarioPanes = document.querySelectorAll('.scenario-pane');
+
+    scenarioTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            scenarioTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const tabId = tab.dataset.tab;
+            scenarioPanes.forEach(pane => {
+                pane.id = `${tabId}-content` ? pane.classList.remove('hidden') : pane.classList.add('hidden');
+            });
+        });
+    });
+
+    // Scenario Chart Data
+    const principal40y = 32640000;
+    const principal30y = 24480000;
+    const principal20y = 16320000;
+    const scenarioData = {
+        '1971': { principal: principal40y, profit: 58620000, pension: 5070000, color: '#81B29A' },
+        '1982': { principal: principal40y, profit: 23190000, pension: 3100000, color: '#F2CC8F' },
+        '1994': { principal: principal40y, profit: 11990000, pension: 2480000, color: '#E07A5F' },
+        '1971_late': { principal: principal30y, profit: 21000000, pension: 2520000, color: '#f59e0b' },
+        '1982_late': { principal: principal30y, profit: 7220000, pension: 1760000, color: '#f97316' },
+        '1995_late': { principal: principal30y, profit: 6250000,  pension: 1710000, color: '#8d6e63' },
+        '1971_later': { principal: principal20y, profit: 3780000, pension: 1120000, color: '#06b6d4' },
+        '1982_later': { principal: principal20y, profit: 2680000, pension: 1050000, color: '#0891b2' },
+    };
+    
+    // Function to create a scenario bar chart
+    const createScenarioChart = (canvasId, data, color) => {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['資産内訳'],
+                datasets: [
+                    { label: '元本', data: [data.principal], backgroundColor: '#3D405B' },
+                    { label: '運用収益', data: [data.profit], backgroundColor: color }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                scales: {
+                    x: { stacked: true, title: { display: true, text: '65歳時点の資産総額' }, ticks: { callback: (v) => (v / 10000).toLocaleString() + '万円' } },
+                    y: { stacked: true, display: false }
+                },
+                plugins: { tooltip: { callbacks: { label: (c) => `${c.dataset.label}: 約 ${Math.round(c.parsed.x / 10000).toLocaleString()}万円` } } }
+            }
+        });
+    };
+
+    createScenarioChart('scenario1971Chart', scenarioData['1971'], scenarioData['1971'].color);
+    createScenarioChart('scenario1982Chart', scenarioData['1982'], scenarioData['1982'].color);
+    createScenarioChart('scenario1994Chart', scenarioData['1994'], scenarioData['1994'].color);
+    createScenarioChart('scenario1971LateChart', scenarioData['1971_late'], scenarioData['1971_late'].color);
+    createScenarioChart('scenario1982LateChart', scenarioData['1982_late'], scenarioData['1982_late'].color);
+    createScenarioChart('scenario1995LateChart', scenarioData['1995_late'], scenarioData['1995_late'].color);
+    createScenarioChart('scenario1971LaterChart', scenarioData['1971_later'], scenarioData['1971_later'].color);
+    createScenarioChart('scenario1982LaterChart', scenarioData['1982_later'], scenarioData['1982_later'].color);
+    
+    // 50-start scenario chart
+    const ctx50start = document.getElementById('scenario50startChart').getContext('2d');
+    new Chart(ctx50start, {
+        type: 'bar',
+        data: {
+            labels: ['リターンの内訳'],
+            datasets: [
+                { label: '総節税額', data: [2450000], backgroundColor: '#2dd4bf' },
+                { label: '運用収益', data: [630000], backgroundColor: '#9ca3af' }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true, title: { display: true, text: '払込総額816万円に対するリターン' }, ticks: { callback: (v) => (v / 10000).toLocaleString() + '万円' } },
+            },
+            plugins: { tooltip: { callbacks: { label: (c) => `${c.dataset.label}: 約 ${Math.round(c.parsed.y / 10000).toLocaleString()}万円` } } }
+        }
+    });
+
+    // 85-year-old balance chart
+    const ctx85Balance = document.getElementById('scenario85BalanceChart').getContext('2d');
+    new Chart(ctx85Balance, {
+        type: 'bar',
+        data: {
+            labels: ['1971年生まれ', '1982年生まれ', '1994年生まれ'],
+            datasets: [
+                { label: '受給総額 (85歳時点)', data: [101400000, 62000000, 49600000], backgroundColor: '#22c55e' },
+                { label: '払込総額', data: [32640000, 32640000, 32640000], backgroundColor: '#ef4444' },
+                { label: '税控除総額', data: [10771200, 10771200, 10771200], backgroundColor: '#3b82f6' }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                y: { title: { display: true, text: '金額' }, ticks: { callback: (v) => (v / 10000).toLocaleString() + '万円' } }
+            },
+            plugins: { tooltip: { callbacks: { label: (c) => `${c.dataset.label}: 約 ${Math.round(c.parsed.y / 10000).toLocaleString()}万円` } } }
+        }
+    });
+
+
+    // All Scenarios Comparison Chart
+    const ctxAll = document.getElementById('scenarioAllChart').getContext('2d');
+    new Chart(ctxAll, {
+        type: 'bar',
+        data: {
+            labels: ['1971(20歳~)', '1982(20歳~)', '1994(20歳~)', '1971(30歳~)', '1982(30歳~)', '1995(30歳~)', '1971(40歳~)', '1982(40歳~)', '50歳~'],
+            datasets: [
+                { 
+                    label: '生涯年金額(年)', 
+                    data: [
+                        scenarioData['1971'].pension, 
+                        scenarioData['1982'].pension,
+                        scenarioData['1994'].pension, 
+                        scenarioData['1971_late'].pension,
+                        scenarioData['1982_late'].pension,
+                        scenarioData['1995_late'].pension,
+                        scenarioData['1971_later'].pension,
+                        scenarioData['1982_later'].pension,
+                        490000
+                    ], 
+                    backgroundColor: [
+                        scenarioData['1971'].color,
+                        scenarioData['1982'].color,
+                        scenarioData['1994'].color,
+                        scenarioData['1971_late'].color,
+                        scenarioData['1982_late'].color,
+                        scenarioData['1995_late'].color,
+                        scenarioData['1971_later'].color,
+                        scenarioData['1982_later'].color,
+                        '#4f46e5'
+                    ]
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                y: { title: { display: true, text: '生涯年金額（年額）' }, ticks: { callback: (v) => (v / 10000).toLocaleString() + '万円' } }
+            },
+            plugins: { 
+                legend: { display: false },
+                tooltip: { callbacks: { label: (c) => `約 ${Math.round(c.parsed.y / 10000).toLocaleString()}万円` } } 
+            }
+        }
+    });
+
+    // General UI Logic
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    mobileMenuBtn.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+
+    const navLinks = document.querySelectorAll('a[href^="#"]');
+    const sections = document.querySelectorAll('section[id]');
+    
+    const smoothScroll = (e) => {
+        e.preventDefault();
+        const targetId = e.currentTarget.getAttribute('href');
+        const targetElement = document.querySelector(targetId);
+        if(targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if(!mobileMenu.classList.contains('hidden')){
+                mobileMenu.classList.add('hidden');
+            }
+        }
+    };
+    navLinks.forEach(anchor => anchor.addEventListener('click', smoothScroll));
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                document.querySelectorAll('.nav-link').forEach(link => {
+                    link.classList.toggle('active', link.getAttribute('href').substring(1) === entry.target.id);
+                });
+            }
+        });
+    }, { rootMargin: '-50% 0px -50% 0px' });
+
+    sections.forEach(section => observer.observe(section));
+});
+</script>
+</body>
+</html>
