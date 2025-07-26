@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ピーマンレシピ大全</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Kitchen -->
+    <!-- Application Structure Plan: A user-centric, task-oriented dashboard. The core navigation consists of filter buttons (Main Dish, Side Dish, Preservation, Unexpected) that dynamically display relevant recipe/info cards. This structure is chosen over a linear report format to allow users to immediately find solutions for their specific needs (e.g., "I need a main dish now" vs. "How do I store these?"). Interactive components, like a comparative view for stuffed peppers and a dynamic chart for freezing methods, are used to make complex information more engaging and digestible. The goal is utility and discovery, not passive reading. -->
+    <!-- Visualization & Content Choices: 
+        - Stuffed Pepper Comparison: Report Info -> Japanese vs. French stuffed peppers. Goal -> Compare. Viz -> Two-column layout with JS-powered tabs. Justification -> More interactive and space-efficient than a static table. Library -> Vanilla JS.
+        - Freezing Method Guide: Report Info -> Freezing methods table. Goal -> Guide user choice. Viz -> Interactive bar chart (Chart.js). Interaction -> User selects a cooking style, and the chart updates to show the suitability of each freezing method. Justification -> Visually represents data, making comparison easier and more actionable than a text table. Library -> Chart.js.
+        - Umami Synergy Diagram: Report Info -> "Mugen Piman" umami science. Goal -> Explain. Viz -> Simple diagram with HTML/CSS. Justification -> Simplifies a scientific concept into an easy-to-remember visual. Library -> HTML/CSS.
+        - Potage Technique Flow: Report Info -> 3-step process to reduce bitterness. Goal -> Organize/Explain. Viz -> 3-step visual flow with HTML/CSS. Justification -> Breaks a process into clear, sequential steps. Library -> HTML/CSS.
+        - All other recipes are presented as a filterable grid of cards for quick scanning and access via modals.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #FDF8F0;
+            color: #3a3a3a;
+        }
+        .active-filter {
+            background-color: #4A5C43 !important;
+            color: #FDF8F0 !important;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .recipe-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .recipe-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .modal {
+            transition: opacity 0.3s ease;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 50vh;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-[#4A5C43] mb-2">ピーマンレシピ大全</h1>
+            <p class="text-lg text-gray-600">手元のピーマンを、最高の料理に変える冒険へようこそ。</p>
+        </header>
+
+        <nav class="flex flex-wrap justify-center gap-2 md:gap-4 mb-12">
+            <button data-filter="all" class="filter-btn px-4 py-2 bg-white text-[#4A5C43] border border-[#4A5C43] rounded-full shadow-sm transition active-filter">すべて</button>
+            <button data-filter="main" class="filter-btn px-4 py-2 bg-white text-[#4A5C43] border border-[#4A5C43] rounded-full shadow-sm transition">🍳 主菜</button>
+            <button data-filter="side" class="filter-btn px-4 py-2 bg-white text-[#4A5C43] border border-[#4A5C43] rounded-full shadow-sm transition">🥗 副菜</button>
+            <button data-filter="preserve" class="filter-btn px-4 py-2 bg-white text-[#4A5C43] border border-[#4A5C43] rounded-full shadow-sm transition">🧊 長期保存</button>
+            <button data-filter="unique" class="filter-btn px-4 py-2 bg-white text-[#4A5C43] border border-[#4A5C43] rounded-full shadow-sm transition">💡 意外なレシピ</button>
+        </nav>
+
+        <main id="recipe-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        </main>
+
+    </div>
+
+    <div id="modal" class="modal fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-[#FDF8F0] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" id="modal-content-wrapper">
+            <div class="p-6 md:p-8 relative">
+                <button id="modal-close" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 transition text-2xl">&times;</button>
+                <div id="modal-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const recipes = {
+            nikuzume: {
+                category: 'main',
+                title: 'ピーマンの肉詰め 完全攻略',
+                emoji: '🍳',
+                description: '肉だねが剥がれない調理科学に基づいた、家庭料理の王様。',
+                content: `
+                    <h3 class="text-2xl font-bold text-[#4A5C43] mb-4">ピーマンの肉詰め：日仏比較</h3>
+                    <p class="mb-6 text-gray-600">家庭の定番「肉詰め」と、フランス料理の「ファルシ」。同じ詰め物料理でも、その哲学は異なります。下のボタンで切り替えて、それぞれの特徴を発見しましょう。</p>
+                    <div class="flex justify-center mb-6">
+                        <div class="inline-flex rounded-md shadow-sm" role="group">
+                            <button type="button" id="btn-jp" class="comparison-btn px-4 py-2 text-sm font-medium text-white bg-[#4A5C43] border border-gray-200 rounded-l-lg hover:bg-opacity-90 focus:z-10 focus:ring-2 focus:ring-[#D4A373]">日本の肉詰め</button>
+                            <button type="button" id="btn-fr" class="comparison-btn px-4 py-2 text-sm font-medium text-[#4A5C43] bg-white border border-gray-200 rounded-r-md hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-[#D4A373]">フランスのファルシ</button>
+                        </div>
+                    </div>
+                    <div id="comparison-content" class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-lg shadow-inner">
+                    </div>
+                    <h3 class="text-2xl font-bold text-[#4A5C43] mt-8 mb-4">達人の技術：剥がれないための二重戦略</h3>
+                    <div class="space-y-4">
+                        <div class="bg-white p-4 rounded-lg">
+                            <h4 class="font-bold text-lg">戦略1：化学的接着「粉のバリア」</h4>
+                            <p class="text-gray-700">ピーマンの内側に薄力粉をまぶすことで、でんぷんが接着剤の役割を果たし、肉だねとピーマンを強力に結びつけます。</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg">
+                            <h4 class="font-bold text-lg">戦略2：物理的固定「ヘタと種の錨」</h4>
+                            <p class="text-gray-700">あえてヘタと種を残す逆転の発想。種やワタの凹凸が、肉だねを物理的に引っ掛ける「錨（いかり）」となり、剥離を防ぎます。</p>
+                        </div>
+                    </div>
+                `
+            },
+            chinjao: {
+                category: 'main',
+                title: '中華の真髄 青椒肉絲',
+                emoji: '🍳',
+                description: 'プロの秘訣「下味」がもたらす三重の効果で、家庭の味を格上げ。',
+                content: `
+                    <h3 class="text-2xl font-bold text-[#4A5C43] mb-4">プロの秘訣：「下味」がもたらす三重の効果</h3>
+                    <p class="mb-6 text-gray-600">家庭と専門店の味を分ける「下味」。この一手間が、風味・食感・一体感の全てを劇的に向上させます。</p>
+                    <div class="space-y-4 text-center">
+                        <div class="p-4 bg-white rounded-lg shadow-sm">
+                            <p class="text-2xl mb-2">1. 風味の浸透</p>
+                            <p class="text-gray-700">醤油や酒が肉の内部に浸透し、味の土台を築きます。</p>
+                        </div>
+                        <div class="text-3xl text-[#D4A373] font-bold">↓</div>
+                        <div class="p-4 bg-white rounded-lg shadow-sm">
+                            <p class="text-2xl mb-2">2. 水分の保持 (ベルベッティング)</p>
+                            <p class="text-gray-700">片栗粉のコーティングが肉汁を閉じ込め、驚くほどジューシーな食感に。</p>
+                        </div>
+                        <div class="text-3xl text-[#D4A373] font-bold">↓</div>
+                        <div class="p-4 bg-white rounded-lg shadow-sm">
+                            <p class="text-2xl mb-2">3. タレの絡み</p>
+                            <p class="text-gray-700">コーティングされた肉の表面がタレを磁石のように引きつけ、一体感が生まれます。</p>
+                        </div>
+                    </div>
+                `
+            },
+            mugen: {
+                category: 'side',
+                title: '無限ピーマンの徹底解剖',
+                emoji: '🥗',
+                description: 'なぜ「無限」に食べられるのか？その秘密は旨味の相乗効果にあり。',
+                content: `
+                    <h3 class="text-2xl font-bold text-[#4A5C43] mb-4">「無限」の美味しさを科学する</h3>
+                    <p class="mb-6 text-gray-600">「やみつきになる」「箸が止まらない」と評される美味しさの正体は、異なる旨味成分が出会うことで生まれる「旨味の相乗効果」です。</p>
+                    <div class="bg-white p-6 rounded-lg shadow-inner text-center">
+                        <div class="flex items-center justify-center space-x-4 md:space-x-8">
+                            <div class="text-center">
+                                <div class="w-24 h-24 md:w-32 md:h-32 bg-[#D4A373] rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">鶏ガラスープ<br>(グルタミン酸)</div>
+                            </div>
+                            <div class="text-4xl font-bold text-[#4A5C43]">+</div>
+                            <div class="text-center">
+                                <div class="w-24 h-24 md:w-32 md:h-32 bg-[#D4A373] rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">ツナ<br>(イノシン酸)</div>
+                            </div>
+                        </div>
+                        <div class="text-5xl my-4 font-bold text-[#4A5C43]">||</div>
+                        <div class="text-center">
+                            <div class="w-40 h-40 md:w-48 md:h-48 bg-gradient-to-br from-yellow-300 to-orange-400 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-xl animate-pulse">旨味爆発！<br>(7~8倍)</div>
+                        </div>
+                    </div>
+                    <h3 class="text-2xl font-bold text-[#4A5C43] mt-8 mb-4">バリエーション</h3>
+                    <p class="text-gray-700">この原理を応用すれば、様々な「無限」シリーズが作れます。ツナを塩昆布（グルタミン酸）や鰹節（イノシン酸）に変えてみましょう。</p>
+                `
+            },
+            freezing: {
+                category: 'preserve',
+                title: '冷凍保存の科学と実践',
+                emoji: '🧊',
+                description: '最終的な料理から逆算する、最適な冷凍方法を選択する技術。',
+                content: `
+                    <h3 class="text-2xl font-bold text-[#4A5C43] mb-4">目的別・冷凍ピーマン活用チャート</h3>
+                    <p class="mb-6 text-gray-600">ピーマンをどのように使いたいですか？下のメニューから選ぶと、各冷凍方法の適性度がチャートで表示されます。</p>
+                    <div class="mb-6">
+                        <select id="use-case-selector" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#D4A373] focus:border-[#D4A373]">
+                            <option value="stir-fry">炒め物・スープ（加熱調理向け）</option>
+                            <option value="ohitashi">おひたし（食感重視）</option>
+                            <option value="no-smell">青臭さ軽減</option>
+                            <option value="meal-prep">ミールプレップ（作り置き）</option>
+                        </select>
+                    </div>
+                    <div class="chart-container bg-white p-4 rounded-lg shadow-inner">
+                        <canvas id="freezing-chart"></canvas>
+                    </div>
+                `
+            },
+            marinade: {
+                category: 'preserve',
+                title: '焼きピーマンのマリネ',
+                emoji: '🧊',
+                description: '皮を黒焼きにする一手間で、日常の野菜がごちそうに変わる錬金術。',
+                content: `
+                    <h3 class="text-2xl font-bold text-[#4A5C43] mb-4">錬金術的テクニック：焼きピーマンのマリネ</h3>
+                    <p class="mb-6 text-gray-600">ピーマンの皮を直火で真っ黒に焼いて剥く。この一手間が、風味・食感・甘味を劇的に変化させ、グルメな前菜へと昇華させます。</p>
+                    <div class="space-y-6">
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0 w-12 h-12 bg-[#4A5C43] text-white text-xl font-bold rounded-full flex items-center justify-center">1</div>
+                            <div>
+                                <h4 class="font-bold text-lg">甘味の凝縮</h4>
+                                <p class="text-gray-700">直火の熱で内部の糖分がカラメル化。スモーキーで深い甘味が生まれます。</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0 w-12 h-12 bg-[#4A5C43] text-white text-xl font-bold rounded-full flex items-center justify-center">2</div>
+                            <div>
+                                <h4 class="font-bold text-lg">食感の洗練</h4>
+                                <p class="text-gray-700">硬い外皮を取り除くことで、驚くほど滑らかでシルキーな食感に。</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0 w-12 h-12 bg-[#4A5C43] text-white text-xl font-bold rounded-full flex items-center justify-center">3</div>
+                            <div>
+                                <h4 class="font-bold text-lg">風味の純化</h4>
+                                <p class="text-gray-700">残るのは純粋なピーマンの果肉の香りだけ。イタリアンやスパニッシュの前菜にも。</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            tsukudani: {
+                category: 'preserve',
+                title: '和の知恵 佃煮',
+                emoji: '🧊',
+                description: '大量のピーマンをコンパクトに。ご飯のお供に最適な常備菜。',
+                content: `
+                    <h3 class="text-2xl font-bold text-[#4A5C43] mb-4">和の知恵「佃煮」</h3>
+                    <p class="mb-6 text-gray-600">醤油と砂糖で煮詰める日本の伝統的な保存食。大量のピーマンもカサが減り、味が凝縮された濃厚な一品に変わります。</p>
+                    <div class="bg-white p-6 rounded-lg shadow-inner">
+                        <h4 class="font-bold text-lg mb-2">長期保存の鍵</h4>
+                        <p class="text-gray-700 mb-4">煮汁がほとんどなくなるまでしっかり煮詰めること。糖分と塩分の濃度が高まり、保存性が向上します。</p>
+                        <h4 class="font-bold text-lg mb-2">食感と風味の選択</h4>
+                        <p class="text-gray-700"><strong>細かく刻むと：</strong>味が染み込みやすく、ジャムのような一体感のある仕上がりに。<br><strong>細切りにすると：</strong>ピーマンの食感が残り、食べ応えが出ます。</p>
+                    </div>
+                `
+            },
+            potage: {
+                category: 'unique',
+                title: '飲むピーマン ポタージュ',
+                emoji: '💡',
+                description: '苦味を旨味に変える三位一体のアプローチで、エレガントなスープに。',
+                content: `
+                    <h3 class="text-2xl font-bold text-[#4A5C43] mb-4">苦味を克服する三位一体アプローチ</h3>
+                    <p class="mb-6 text-gray-600">ピーマンの爽やかな風味は活かしつつ、苦味の角を取るための3ステップ。これらを組み合わせることで、まろやかで美味しいスープが完成します。</p>
+                    <div class="space-y-4">
+                        <div class="p-4 bg-white rounded-lg shadow-sm">
+                            <h4 class="text-lg font-bold">1. 抽出 (下茹で)</h4>
+                            <p class="text-gray-700">最初に茹でることで、水溶性の苦味成分をお湯に溶かし出して除去します。</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-lg shadow-sm">
+                            <h4 class="text-lg font-bold">2. 転換 (加熱)</h4>
+                            <p class="text-gray-700">玉ねぎと共にバターでじっくり炒め、ピーマンの自然な甘味を引き出します。</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-lg shadow-sm">
+                            <h4 class="text-lg font-bold">3. 調和 (乳製品)</h4>
+                            <p class="text-gray-700">牛乳や生クリームの脂肪分が舌をコーティングし、苦味をマスキングします。</p>
+                        </div>
+                    </div>
+                `
+            },
+            jam: {
+                category: 'unique',
+                title: 'デザートとしてのピーマン',
+                emoji: '💡',
+                description: 'ジャムやマーマレードに。甘口からスパイシーな調味料まで変幻自在。',
+                content: `
+                    <h3 class="text-2xl font-bold text-[#4A5C43] mb-4">ピーマンジャムの甘さのスペクトル</h3>
+                    <p class="mb-6 text-gray-600">「ジャム」という調理法は、ピーマンの可能性をデザートから調味料まで大きく広げます。</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div class="p-4 bg-white rounded-lg shadow-sm">
+                            <h4 class="font-bold text-lg mb-2">フルーティーな甘口</h4>
+                            <p class="text-sm text-gray-600">オレンジジュースや蜂蜜と。ヨーグルトやトーストに。</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-lg shadow-sm">
+                            <h4 class="font-bold text-lg mb-2">洗練された大人の味</h4>
+                            <p class="text-sm text-gray-600">白ワインやりんごジャムと。チーズと共に。</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-lg shadow-sm">
+                            <h4 class="font-bold text-lg mb-2">セイボリー(塩味)系</h4>
+                            <p class="text-sm text-gray-600">醤油やスパイスと。肉料理のソースにも。</p>
+                        </div>
+                    </div>
+                `
+            }
+        };
+
+        const grid = document.getElementById('recipe-grid');
+        const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modal-content');
+        const modalClose = document.getElementById('modal-close');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+
+        const comparisonData = {
+            jp: {
+                title: '日本の「肉詰め」',
+                content: `
+                    <div><h5 class="font-bold text-md text-[#4A5C43]">主な詰め物</h5><p>豚・牛ひき肉、玉ねぎ、パン粉</p></div>
+                    <div><h5 class="font-bold text-md text-[#4A5C43]">調理法</h5><p>フライパンで焼いて蒸す</p></div>
+                    <div><h5 class="font-bold text-md text-[#4A5C43]">ソース/仕上げ</h5><p>甘辛い醤油・オイスターソースのタレ</p></div>
+                    <div><h5 class="font-bold text-md text-[#4A5C43]">最適なシーン</h5><p>ご飯が進む主菜、お弁当</p></div>
+                `
+            },
+            fr: {
+                title: 'フランスの「ファルシ」',
+                content: `
+                    <div><h5 class="font-bold text-md text-[#4A5C43]">主な詰め物</h5><p>ひき肉、ハーブ、米、クリームチーズなど</p></div>
+                    <div><h5 class="font-bold text-md text-[#4A5C43]">調理法</h5><p>オーブンで焼く、または煮込む</p></div>
+                    <div><h5 class="font-bold text-md text-[#4A5C43]">ソース/仕上げ</h5><p>トマトソース、ブイヨン、または無し</p></div>
+                    <div><h5 class="font-bold text-md text-[#4A5C43]">最適なシーン</h5><p>ワインと共に楽しむ前菜、持ち寄り料理</p></div>
+                `
+            }
+        };
+
+        const freezingChartData = {
+            labels: ['生・カット', '生・丸ごと', '加熱・カット', '調理済み'],
+            datasets: {
+                'stir-fry': [5, 3, 4, 5],
+                'ohitashi': [2, 4, 3, 1],
+                'no-smell': [2, 1, 5, 4],
+                'meal-prep': [1, 1, 2, 5]
+            }
+        };
+        let freezingChart;
+
+        const createCard = (id, recipe) => {
+            const card = document.createElement('div');
+            card.className = 'recipe-card bg-white rounded-xl shadow-md overflow-hidden cursor-pointer';
+            card.dataset.category = recipe.category;
+            card.dataset.id = id;
+            card.innerHTML = `
+                <div class="p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="text-2xl mr-3">${recipe.emoji}</div>
+                        <h2 class="text-xl font-bold text-gray-800">${recipe.title}</h2>
+                    </div>
+                    <p class="text-gray-600">${recipe.description}</p>
+                </div>
+            `;
+            card.addEventListener('click', () => openModal(id));
+            return card;
+        };
+        
+        const populateGrid = () => {
+            grid.innerHTML = '';
+            for (const id in recipes) {
+                grid.appendChild(createCard(id, recipes[id]));
+            }
+        };
+
+        const openModal = (id) => {
+            const recipe = recipes[id];
+            modalContent.innerHTML = `
+                <div class="flex items-center mb-4">
+                    <div class="text-3xl mr-4">${recipe.emoji}</div>
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-800">${recipe.title}</h2>
+                        <p class="text-gray-500">${recipe.description}</p>
+                    </div>
+                </div>
+                <div class="mt-6">${recipe.content}</div>
+            `;
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+
+            if (id === 'nikuzume') {
+                setupComparison();
+            }
+            if (id === 'freezing') {
+                setupFreezingChart();
+            }
+        };
+
+        const closeModal = () => {
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            if (freezingChart) {
+                freezingChart.destroy();
+                freezingChart = null;
+            }
+        };
+
+        const filterGrid = (filter) => {
+            const cards = document.querySelectorAll('.recipe-card');
+            cards.forEach(card => {
+                if (filter === 'all' || card.dataset.category === filter) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+
+            filterBtns.forEach(btn => {
+                if (btn.dataset.filter === filter) {
+                    btn.classList.add('active-filter');
+                } else {
+                    btn.classList.remove('active-filter');
+                }
+            });
+        };
+
+        function setupComparison() {
+            const contentDiv = document.getElementById('comparison-content');
+            const btnJp = document.getElementById('btn-jp');
+            const btnFr = document.getElementById('btn-fr');
+
+            const updateContent = (lang) => {
+                contentDiv.innerHTML = comparisonData[lang].content;
+                if(lang === 'jp') {
+                    btnJp.classList.add('bg-[#4A5C43]', 'text-white');
+                    btnJp.classList.remove('bg-white', 'text-[#4A5C43]');
+                    btnFr.classList.add('bg-white', 'text-[#4A5C43]');
+                    btnFr.classList.remove('bg-[#4A5C43]', 'text-white');
+                } else {
+                    btnFr.classList.add('bg-[#4A5C43]', 'text-white');
+                    btnFr.classList.remove('bg-white', 'text-[#4A5C43]');
+                    btnJp.classList.add('bg-white', 'text-[#4A5C43]');
+                    btnJp.classList.remove('bg-[#4A5C43]', 'text-white');
+                }
+            };
+
+            btnJp.addEventListener('click', () => updateContent('jp'));
+            btnFr.addEventListener('click', () => updateContent('fr'));
+
+            updateContent('jp');
+        }
+
+        function setupFreezingChart() {
+            const ctx = document.getElementById('freezing-chart').getContext('2d');
+            const selector = document.getElementById('use-case-selector');
+
+            const chartConfig = {
+                type: 'bar',
+                data: {
+                    labels: freezingChartData.labels,
+                    datasets: [{
+                        label: '適性度 (5段階評価)',
+                        data: freezingChartData.datasets[selector.value],
+                        backgroundColor: [
+                            'rgba(74, 92, 67, 0.6)',
+                            'rgba(212, 163, 115, 0.6)',
+                            'rgba(142, 166, 135, 0.6)',
+                            'rgba(186, 137, 93, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(74, 92, 67, 1)',
+                            'rgba(212, 163, 115, 1)',
+                            'rgba(142, 166, 135, 1)',
+                            'rgba(186, 137, 93, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 5,
+                            title: {
+                                display: true,
+                                text: '適性度'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y + ' / 5';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            
+            if (freezingChart) {
+                freezingChart.destroy();
+            }
+            freezingChart = new Chart(ctx, chartConfig);
+
+            selector.addEventListener('change', (e) => {
+                freezingChart.data.datasets[0].data = freezingChartData.datasets[e.target.value];
+                freezingChart.update();
+            });
+        }
+
+        modalClose.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => filterGrid(btn.dataset.filter));
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateGrid();
+        });
+    </script>
+
+</body>
+</html>
