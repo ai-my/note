@@ -2,11 +2,58 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>GitHub Pages Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Home | 私のノート</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #FDF8F0; /* GreenPepper.htmlと共通の背景色 */
+            color: #3a3a3a;
+        }
+        .card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+    </style>
 </head>
-<body>
-    <h1>Hello, GitHub Pages!</h1>
-    <p>このページが表示されていれば、GitHub Pagesは正しく設定されています。</p>
-    <p><a href="GreenPepper.html">ピーマンレシピ大全へ</a></p>
+<body class="antialiased flex items-center justify-center min-h-screen">
+
+    <div class="container mx-auto p-8 max-w-4xl text-center">
+
+        <header class="mb-12">
+            <h1 class="text-5xl md:text-6xl font-bold text-[#4A5C43] mb-4">My Note</h1>
+            <p class="text-xl text-gray-600">日々の学びと発見を記録する場所。</p>
+        </header>
+
+        <main>
+            <a href="GreenPepper.html" class="card block bg-white rounded-2xl shadow-lg overflow-hidden cursor-pointer max-w-lg mx-auto">
+                <div class="p-8">
+                    <div class="flex items-center mb-4">
+                        <div class="text-4xl mr-5">🍳</div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800 text-left">ピーマンレシピ大全</h2>
+                            <p class="text-gray-600 text-left">手元のピーマンを、最高の料理に変える冒険へ。</p>
+                        </div>
+                    </div>
+                    <div class="bg-[#4A5C43] text-white text-sm font-bold py-2 px-4 rounded-full inline-block mt-4">
+                        レシピを見る
+                    </div>
+                </div>
+            </a>
+        </main>
+
+        <footer class="mt-16 text-gray-500">
+            <p>&copy; 2024 ai-my. All rights reserved.</p>
+        </footer>
+
+    </div>
+
 </body>
 </html>
