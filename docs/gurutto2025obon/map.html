@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ぐるっとパス施設マップ（バグ修正版）</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet.js for mapping -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Custom CSS for layout and styling -->
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        #app-container {
+            display: flex;
+            height: 100vh;
+        }
+        #map {
+            flex-grow: 1;
+            height: 100%;
+        }
+        #sidebar {
+            width: 350px;
+            height: 100%;
+            overflow-y: auto;
+            background-color: #f8fafc;
+            border-left: 1px solid #e5e7eb;
+            transition: width 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+        @media (max-width: 768px) {
+            #app-container {
+                flex-direction: column;
+            }
+            #sidebar {
+                width: 100%;
+                height: 45vh; /* Adjust height for mobile */
+                border-left: none;
+                border-top: 1px solid #e5e7eb;
+            }
+            #map {
+                height: 55vh;
+            }
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+        }
+        .leaflet-popup-content {
+            margin: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .leaflet-control-layers {
+            border-radius: 8px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+        }
+        .sort-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="app-container">
+        <!-- Map container -->
+        <div id="map"></div>
+        
+        <!-- Sidebar for facility list and controls -->
+        <div id="sidebar">
+            <div class="p-4 bg-white border-b border-gray-200 sticky top-0 z-10">
+                <h1 class="text-xl font-bold text-gray-800">ぐるっとパス施設マップ</h1>
+                <!-- Search Input -->
+                <input type="text" id="search-box" placeholder="施設名で検索..." class="w-full mt-3 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <!-- Sort Controls -->
+                <div class="flex space-x-2 mt-3">
+                    <button id="sort-by-score" class="sort-btn flex-1 py-1 px-2 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">スコア順</button>
+                    <button id="sort-by-name" class="sort-btn flex-1 py-1 px-2 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">名前順</button>
+                </div>
+            </div>
+            <div id="facility-list" class="flex-grow p-2 overflow-y-auto">
+                <!-- Facility items will be injected here by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- Data Integration (with added holiday/hours and discount info) ---
+    const facilitiesData = [
+      { "id": 1, "name": "したまちミュージアム", "score": 35, "area": "上野周辺エリア", "lat": 35.7102, "lon": 139.7726, "details": "入場 | 300円 | 上野エリアの周遊に。", "discountText": "300円", "hours_obon": "9:30-16:30", "holiday_obon": "8/12(火)" },
+      { "id": 2, "name": "上野の森美術館", "score": 25, "area": "上野周辺エリア", "lat": 35.712855, "lon": 139.774761, "details": "割引 | 一般料金の100円引 | 企画展次第。", "discountText": "100円引", "hours_obon": "10:00-17:00 (展覧会による)", "holiday_obon": "展覧会会期中は無休の可能性あり" },
+      { "id": 3, "name": "国立西洋美術館", "score": 45, "area": "上野周辺エリア", "lat": 35.715432, "lon": 139.775966, "details": "割引 | 一般料金の100円引 | 【割引施設・特別評価】 トーハク同様、施設の価値を考慮。", "discountText": "100円引", "hours_obon": "9:30-17:30 (金曜は20:00まで)", "holiday_obon": "なし" },
+      { "id": 4, "name": "国立科学博物館", "score": 45, "area": "上野周辺エリア", "lat": 35.7163, "lon": 139.7764, "details": "割引 | 一般・大学生100円引 | 【割引施設・特別評価】 トーハク同様、施設の価値を考慮。", "discountText": "100円引", "hours_obon": "9:00-18:00 (常設展は期間中延長)", "holiday_obon": "なし" },
+      { "id": 5, "name": "東京国立博物館", "score": 50, "area": "上野周辺エリア", "lat": 35.718868, "lon": 139.776438, "details": "割引 | 一般料金の100円引 | 【割引施設・特別評価】 施設の圧倒的な価値を考慮しスコアUP。", "discountText": "100円引", "hours_obon": "9:30-17:00 (金土は20:00まで)", "holiday_obon": "なし (8/12は臨時開館)" },
+      { "id": 6, "name": "旧東京音楽学校奏楽堂", "score": 50, "area": "上野周辺エリア", "lat": 35.718059, "lon": 139.773138, "details": "入場 | 300円 | 歴史的建造物好きに。日曜コンサート", "discountText": "300円", "hours_obon": "9:30-16:30", "holiday_obon": "8/12(火)" },
+      { "id": 7, "name": "東京都美術館", "score": 90, "area": "上野周辺エリア", "lat": 35.7172, "lon": 139.7729, "details": "入場 | 1100円 | 【企画展】作る喜び。上野の好立地と質の高い企画展が魅力。サマーナイトコンサート", "discountText": "1100円", "hours_obon": "9:30-17:30 (金曜は20:00まで)", "holiday_obon": "なし" },
+      { "id": 8, "name": "恩賜上野動物園", "score": 65, "area": "上野周辺エリア", "lat": 35.716553, "lon": 139.771223, "details": "入場 | 600円 | 定番の人気施設。", "discountText": "600円", "hours_obon": "9:30-17:00", "holiday_obon": "なし" },
+      { "id": 9, "name": "東京藝術大学大学美術館", "score": 25, "area": "上野周辺エリア", "lat": 35.71919, "lon": 139.771942, "details": "割引 | 一般料金の200円引 | 未来の芸術家を発掘。", "discountText": "200円引", "hours_obon": "10:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 10, "name": "旧岩崎邸庭園", "score": 35, "area": "上野周辺エリア", "lat": 35.709727, "lon": 139.767616, "details": "入場 | 400円 | 庭園と建物の調和が美しい。", "discountText": "400円", "hours_obon": "9:00-17:00", "holiday_obon": "なし" },
+      { "id": 11, "name": "朝倉彫塑館", "score": 55, "area": "上野周辺エリア", "lat": 35.726922, "lon": 139.768482, "details": "入場 | 500円 | 谷根千散策とセットで。", "discountText": "500円", "hours_obon": "9:30-16:30", "holiday_obon": "8/12(火), 8/14(木)" },
+      { "id": 12, "name": "書道博物館", "score": 40, "area": "上野周辺エリア", "lat": 35.72467192, "lon": 139.77625254, "details": "入場 | 500円 | 書道好きなら。", "discountText": "500円", "hours_obon": "9:30-16:30", "holiday_obon": "8/12(火)" },
+      { "id": 13, "name": "一葉記念館", "score": 35, "area": "上野周辺エリア", "lat": 35.72556, "lon": 139.792806, "details": "入場 | 300円 | 文学好きに。", "discountText": "300円", "hours_obon": "9:00-16:30", "holiday_obon": "8/12(火)" },
+      { "id": 14, "name": "石洞美術館", "score": 35, "area": "上野周辺エリア", "lat": 35.74062107, "lon": 139.7963249, "details": "入場 | 500円 | 仏教美術に興味があれば。", "discountText": "500円", "hours_obon": "10:00-17:00", "holiday_obon": "8月は夏季休館の可能性あり" },
+      { "id": 15, "name": "文京区立森鷗外記念館", "score": 40, "area": "上野周辺エリア", "lat": 35.724934, "lon": 139.760607, "details": "入場 | 300円 | 文学好きに。", "discountText": "300円", "hours_obon": "10:00-18:00", "holiday_obon": "なし" },
+      { "id": 16, "name": "向島百花園", "score": 23, "area": "上野周辺エリア", "lat": 35.724225, "lon": 139.815459, "details": "入場 | 150円 | 四季の花々。", "discountText": "150円", "hours_obon": "9:00-17:00", "holiday_obon": "なし" },
+      { "id": 17, "name": "ミュゼ浜口陽三・ヤマサコレクション", "score": 33, "area": "東京・皇居周辺エリア", "lat": 35.681698, "lon": 139.785364, "details": "入場 | 600円 | 銅版画の専門美術館。", "discountText": "600円", "hours_obon": "11:00-17:00 (土日祝は10:00-)", "holiday_obon": "8/12(火)" },
+      { "id": 18, "name": "三井記念美術館", "score": 40, "area": "東京・皇居周辺エリア", "lat": 35.686412, "lon": 139.773486, "details": "割引 | 一般料金の300円引 | 割引額が比較的高いためスコアUP。", "discountText": "300円引", "hours_obon": "10:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 19, "name": "国立映画アーカイブ", "score": 50, "area": "東京・皇居周辺エリア", "lat": 35.675583, "lon": 139.770695, "details": "入場 | 500円 | 【企画展】映画監督 森田芳光。映画好きに。", "discountText": "500円", "hours_obon": "11:00-18:30", "holiday_obon": "8/11(月祝)" },
+      { "id": 20, "name": "静嘉堂文庫美術館", "score": 25, "area": "東京・皇居周辺エリア", "lat": 35.67897348, "lon": 139.76163532, "details": "割引 | 一般料金の200円引 | 東洋美術のコレクション。", "discountText": "200円引", "hours_obon": "10:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 21, "name": "小石川後楽園", "score": 35, "area": "東京・皇居周辺エリア", "lat": 35.705556, "lon": 139.749167, "details": "入場 | 300円 | 都心の大名庭園。", "discountText": "300円", "hours_obon": "9:00-17:00", "holiday_obon": "なし" },
+      { "id": 22, "name": "野球殿堂博物館", "score": 70, "area": "東京・皇居周辺エリア", "lat": 35.705597, "lon": 139.752995, "details": "入場 | 800円 | 野球ファンなら必見の聖地。", "discountText": "800円", "hours_obon": "10:00-17:00 (8/13は13:00-)", "holiday_obon": "なし (夏休み期間中)" },
+      { "id": 23, "name": "印刷博物館", "score": 60, "area": "東京・皇居周辺エリア", "lat": 35.709333, "lon": 139.741611, "details": "入場 | 500円 | 【企画展】京極夏彦と江戸期の版本。珍しいテーマの博物館。", "discountText": "500円", "hours_obon": "10:00-18:00", "holiday_obon": "8/12(火)" },
+      { "id": 24, "name": "日本カメラ博物館", "score": 35, "area": "東京・皇居周辺エリア", "lat": 35.686044, "lon": 139.742875, "details": "入場 | 300円 | カメラ好きに。", "discountText": "300円", "hours_obon": "10:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 25, "name": "昭和館", "score": 35, "area": "東京・皇居周辺エリア", "lat": 35.695129, "lon": 139.750774, "details": "入場 | 400円 | 戦中・戦後の歴史を学ぶ。", "discountText": "400円", "hours_obon": "10:00-17:30", "holiday_obon": "8/12(火)" },
+      { "id": 26, "name": "科学技術館", "score": 80, "area": "東京・皇居周辺エリア", "lat": 35.691355, "lon": 139.752761, "details": "入場 | 950円 | 【企画展】科学捜査展。体験型展示が多く、知的好奇心を刺激される。", "discountText": "950円", "hours_obon": "9:30-16:50", "holiday_obon": "なし" },
+      { "id": 27, "name": "東京国立近代美術館", "score": 25, "area": "東京・皇居周辺エリア", "lat": 35.6905, "lon": 139.7547, "details": "割引 | 一般料金の100円引 | 日本の近代美術を学ぶ。", "discountText": "100円引", "hours_obon": "10:00-17:00 (金土は20:00まで)", "holiday_obon": "8/12(火)" },
+      { "id": 28, "name": "パナソニック汐留美術館", "score": 99, "area": "港・渋谷・目黒・世田谷", "lat": 35.6659066, "lon": 139.7619241, "details": "入場 | 1200円 | 【企画展】ジョルジュ・ルオーの手仕事他。", "discountText": "1200円", "hours_obon": "10:00-18:00", "holiday_obon": "8/13(水)" },
+      { "id": 29, "name": "浜離宮恩賜庭園", "score": 35, "area": "港・渋谷・目黒・世田谷", "lat": 35.66, "lon": 139.76361, "details": "入場 | 300円 | 都心のオアシス。", "discountText": "300円", "hours_obon": "9:00-17:00", "holiday_obon": "なし" },
+      { "id": 30, "name": "旧芝離宮恩賜庭園", "score": 23, "area": "港・渋谷・目黒・世田谷", "lat": 35.655, "lon": 139.759, "details": "入場 | 150円 | 美しい小規模庭園。", "discountText": "150円", "hours_obon": "9:00-17:00", "holiday_obon": "なし" },
+      { "id": 31, "name": "WHAT MUSEUM", "score": 25, "area": "港・渋谷・目黒・世田谷", "lat": 35.6208, "lon": 139.7483, "details": "割引 | 展覧会により異なる | 現代アートの倉庫。", "discountText": "割引", "hours_obon": "11:00-18:00", "holiday_obon": "8/12(火)" },
+      { "id": 32, "name": "大倉集古館", "score": 90, "area": "港・渋谷・目黒・世田谷", "lat": 35.666972, "lon": 139.743333, "details": "入場 | 1500円 | 【特別展】藍と紅のものがたり。都心の一等地で質の高いコレクション。", "discountText": "1500円", "hours_obon": "10:00-17:00 (金曜は19:00まで)", "holiday_obon": "8/12(火)" },
+      { "id": 33, "name": "菊池寛実記念 智美術館", "score": 70, "area": "港・渋谷・目黒・世田谷", "lat": 35.66603088, "lon": 139.7445406, "details": "入場 | 1,100円 | 現代陶芸に特化。静かで落ち着いた空間で本物と向き合える。", "discountText": "1,100円", "hours_obon": "11:00-18:00", "holiday_obon": "8/12(火)" },
+      { "id": 34, "name": "泉屋博古館東京", "score": 0, "area": "港・渋谷・目黒・世田谷", "lat": 35.664967, "lon": 139.741232, "details": "割引 | 休館中 | 東洋美術のコレクション。", "discountText": "休館中", "hours_obon": "8/30から開館 (11:00-18:00)", "holiday_obon": "8/29まで休館" },
+      { "id": 35, "name": "森美術館", "score": 40, "area": "港・渋谷・目黒・世田谷", "lat": 35.660406, "lon": 139.729026, "details": "割引 | 一般料金の200円引 | 割引額と展示内容の変動を考慮。", "discountText": "200円引", "hours_obon": "10:00-22:00 (火曜は17:00まで)", "holiday_obon": "なし" },
+      { "id": 36, "name": "渋谷区立松濤美術館", "score": 82, "area": "港・渋谷・目黒・世田谷", "lat": 35.658667, "lon": 139.691778, "details": "入場 | 1000円 | 【企画展】忠犬ハチ公像。渋谷の奥座敷、ユニークな企画展が光る。", "discountText": "1000円", "hours_obon": "10:00-18:00", "holiday_obon": "なし" },
+      { "id": 37, "name": "戸栗美術館", "score": 25, "area": "港・渋谷・目黒・世田谷", "lat": 35.661464, "lon": 139.692836, "details": "割引 | 一般料金の200円引 | 陶磁器専門。", "discountText": "200円引", "hours_obon": "10:00-17:00 (金土は20:00まで)", "holiday_obon": "8/11(月祝)は開館、8/12(火)は休館" },
+      { "id": 38, "name": "山種美術館", "score": 25, "area": "港・渋谷・目黒・世田谷", "lat": 35.653168, "lon": 139.713724, "details": "割引 | 一般当日料金の200円引 | 日本画専門。", "discountText": "200円引", "hours_obon": "8/9から開館 (10:00-17:00)", "holiday_obon": "8/12(火)" },
+      { "id": 39, "name": "東京都写真美術館", "score": 85, "area": "港・渋谷・目黒・世田谷", "lat": 35.641583, "lon": 139.713197, "details": "入場 | 700円 | 恵比寿という好立地と、写真・映像に特化した高い専門性。", "discountText": "700円", "hours_obon": "10:00-18:00 (木金は20:00/21:00まで)", "holiday_obon": "8/12(火)" },
+      { "id": 40, "name": "松岡美術館", "score": 25, "area": "港・渋谷・目黒・世田谷", "lat": 35.639969, "lon": 139.721777, "details": "割引 | 一般料金の団体割引相当額 | 東洋陶磁器など。", "discountText": "団体割引", "hours_obon": "10:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 41, "name": "港区立郷土歴史館", "score": 25, "area": "港・渋谷・目黒・世田谷", "lat": 35.640083, "lon": 139.726889, "details": "割引 | 50%引 | 地域の歴史を学ぶ。", "discountText": "50%引", "hours_obon": "9:00-17:00 (土曜は20:00まで)", "holiday_obon": "8/21(木)" },
+      { "id": 42, "name": "国立科学博物館附属自然教育園", "score": 25, "area": "港・渋谷・目黒・世田谷", "lat": 35.639106, "lon": 139.719516, "details": "割引 | 展覧会により異なる | 都心の自然。", "discountText": "割引", "hours_obon": "9:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 43, "name": "東京都庭園美術館", "score": 92, "area": "港・渋谷・目黒・世田谷", "lat": 35.6369, "lon": 139.719, "details": "入場 | 1000円 |建物の価値が高い。15日サマーナイトイベント", "discountText": "1000円", "hours_obon": "10:00-18:00 (金曜は21:00まで)", "holiday_obon": "8/12(火)" },
+      { "id": 44, "name": "目黒区美術館", "score": 75, "area": "港・渋谷・目黒・世田谷", "lat": 35.634861, "lon": 139.707722, "details": "入場 | 800円 | 企画展 クルトネフ他", "discountText": "800円", "hours_obon": "10:00-18:00", "holiday_obon": "8/12(火)" },
+      { "id": 45, "name": "郷さくら美術館", "score": 50, "area": "港・渋谷・目黒・世田谷", "lat": 35.645752, "lon": 139.699987, "details": "入場 | 800円 | 現代日本画専門。", "discountText": "800円", "hours_obon": "10:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 46, "name": "アクセサリーミュージアム", "score": 58, "area": "港・渋谷・目黒・世田谷", "lat": 35.640647, "lon": 139.68871, "details": "入場 | 800円 | ユニークなテーマ性が魅力。", "discountText": "800円", "hours_obon": "夏季休館 (8/11-9/1)", "holiday_obon": "8/11-9/1" },
+      { "id": 47, "name": "五島美術館", "score": 0, "area": "港・渋谷・目黒・世田谷", "lat": 35.612306, "lon": 139.635556, "details": "割引 | 休館中 | 古典美術。", "discountText": "休館中", "hours_obon": "10:00-17:00", "holiday_obon": "8/4-8/9は休館, 8/12(火)は休館" },
+      { "id": 48, "name": "長谷川町子美術館", "score": 70, "area": "港・渋谷・目黒・世田谷", "lat": 35.627944, "lon": 139.643583, "details": "入場 | 900円 | サザエさんの世界。", "discountText": "900円", "hours_obon": "10:00-17:30", "holiday_obon": "8/12(火)" },
+      { "id": 49, "name": "世田谷文学館", "score": 35, "area": "港・渋谷・目黒・世田谷", "lat": 35.66713, "lon": 139.608869, "details": "入場 | 200円 | 世田谷ゆかりの文学。", "discountText": "200円", "hours_obon": "10:00-18:00", "holiday_obon": "8/12(火)" },
+      { "id": 50, "name": "世田谷美術館", "score": 35, "area": "港・渋谷・目黒・世田谷", "lat": 35.6316, "lon": 139.6219, "details": "入場 | 200円 |公園内の美術館。", "discountText": "200円", "hours_obon": "10:00-18:00", "holiday_obon": "8/12(火)" },
+      { "id": 51, "name": "新宿区立漱石山房記念館", "score": 50, "area": "新宿・練馬・池袋・王子", "lat": 35.703934, "lon": 139.725474, "details": "入場 | 300円 | 夏目漱石の旧居跡。", "discountText": "300円", "hours_obon": "10:00-18:00", "holiday_obon": "8/12(火)" },
+      { "id": 52, "name": "新宿区立新宿歴史博物館", "score": 35, "area": "新宿・練馬・池袋・王子", "lat": 35.68994828, "lon": 139.72571194, "details": "入場 | 300円 |新宿の歴史。", "discountText": "300円", "hours_obon": "9:30-17:30", "holiday_obon": "8/12(火), 8/25(月)" },
+      { "id": 53, "name": "文化学園服飾博物館", "score": 78, "area": "新宿・練馬・池袋・王子", "lat": 35.686234, "lon": 139.695003, "details": "入場 | 1,000円 | 新宿駅からのアクセスが良く、服飾史の知識を深められる。", "discountText": "1,000円", "hours_obon": "夏季休館 (8/8-8/17)", "holiday_obon": "8/8-8/17" },
+      { "id": 54, "name": "日本オリンピックミュージアム", "score": 30, "area": "新宿・練馬・池袋・王子", "lat": 35.674901, "lon": 139.715167, "details": "入場 | 500円 | -", "discountText": "500円", "hours_obon": "10:00-17:00", "holiday_obon": "8/11(月祝), 8/12(火)" },
+      { "id": 55, "name": "古賀政男音楽博物館", "score": 30, "area": "新宿・練馬・池袋・王子", "lat": 35.66785, "lon": 139.680043, "details": "入場 | 550円 | -", "discountText": "550円", "hours_obon": "10:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 56, "name": "東京オペラシティ アートギャラリー", "score": 96, "area": "新宿・練馬・池袋・王子", "lat": 35.682778, "lon": 139.681944, "details": "入場 | 1600円 | 【最優先】経済価値が極めて高く、アクセスも良好。", "discountText": "1600円", "hours_obon": "11:00-19:00 (金土は20:00まで)", "holiday_obon": "8/3(日), 8/11(月祝)" },
+      { "id": 57, "name": "NTTインターコミュニケーション・センター [ICC]", "score": 35, "area": "新宿・練馬・池袋・王子", "lat": 35.6829656, "lon": 139.6869004, "details": "入場 | 展覧会により異なる | メディアアートの先端。", "discountText": "割引", "hours_obon": "11:00-18:00", "holiday_obon": "8/3(日), 8/11(月祝)" },
+      { "id": 58, "name": "新宿区立林芙美子記念館", "score": 35, "area": "新宿・練馬・池袋・王子", "lat": 35.715861, "lon": 139.68425, "details": "入場 | 150円 | 文学好きに。", "discountText": "150円", "hours_obon": "10:00-16:30", "holiday_obon": "8/12(火)" },
+      { "id": 59, "name": "ちひろ美術館・東京", "score": 78, "area": "新宿・練馬・池袋・王子", "lat": 35.72865, "lon": 139.60535, "details": "入場 | 1,200円 | 唯一無二の施設価値。アクセス面の減点を考慮してもなお最高評価。", "discountText": "1,200円", "hours_obon": "10:00-17:00", "holiday_obon": "なし (夏休み期間中)" },
+      { "id": 60, "name": "豊島区立熊谷守一美術館", "score": 30, "area": "新宿・練馬・池袋・王子", "lat": 35.73373861346245, "lon": 139.69088884267833, "details": "入場 | 500円 | -", "discountText": "500円", "hours_obon": "10:30-17:30", "holiday_obon": "8/11(月祝)" },
+      { "id": 61, "name": "永青文庫", "score": 78, "area": "新宿・練馬・池袋・王子", "lat": 35.713112, "lon": 139.723562, "details": "入場 | 1,000円 | 細川家の至宝に触れられる貴重な機会。", "discountText": "1,000円", "hours_obon": "10:00-16:30", "holiday_obon": "8/12(火)" },
+      { "id": 62, "name": "古代オリエント博物館", "score": 70, "area": "新宿・練馬・池袋・王子", "lat": 35.728527, "lon": 139.720778, "details": "入場 | 1200円 | 古代オリエントの世界。", "discountText": "1200円", "hours_obon": "10:00-17:00 (8/22金は20:00まで)", "holiday_obon": "なし" },
+      { "id": 63, "name": "紙の博物館", "score": 32, "area": "新宿・練馬・池袋・王子", "lat": 35.749872, "lon": 139.738658, "details": "入場 | 400円 | -", "discountText": "400円", "hours_obon": "10:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 64, "name": "旧古河庭園", "score": 23, "area": "新宿・練馬・池袋・王子", "lat": 35.742557, "lon": 139.746159, "details": "入場 | 150円 | 洋館と庭園の美。", "discountText": "150円", "hours_obon": "9:00-17:00 (洋館は夏季休館の可能性あり)", "holiday_obon": "なし (庭園)" },
+      { "id": 65, "name": "六義園", "score": 30, "area": "新宿・練馬・池袋・王子", "lat": 35.733139, "lon": 139.746512, "details": "入場 | 300円 | 回遊式庭園の代表格。", "discountText": "300円", "hours_obon": "9:00-17:00", "holiday_obon": "なし" },
+      { "id": 66, "name": "東洋文庫ミュージアム", "score": 79, "area": "新宿・練馬・池袋・王子", "lat": 35.7314459, "lon": 139.7485464, "details": "入場 | 900円 | モリソン書庫は一見の価値あり。", "discountText": "900円", "hours_obon": "終日閉館", "holiday_obon": "8月中は終日閉館" },
+      { "id": 67, "name": "たばこと塩の博物館", "score": 35, "area": "墨田・深川・臨海エリア", "lat": 35.70577, "lon": 139.80853, "details": "入場 | 300円 | ユニークなテーマ。", "discountText": "300円", "hours_obon": "10:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 68, "name": "すみだ北斎美術館", "score": 55, "area": "墨田・深川・臨海エリア", "lat": 35.69633, "lon": 139.80049, "details": "入場 | 400円 | 北斎ファンなら。常設展の規模はコンパクト。", "discountText": "400円", "hours_obon": "9:30-17:30", "holiday_obon": "8/12(火)" },
+      { "id": 69, "name": "江東区芭蕉記念館", "score": 30, "area": "墨田・深川・臨海エリア", "lat": 35.686135, "lon": 139.794069, "details": "入場 |一般料金の20%引 | 松尾芭蕉ゆかりの地。", "discountText": "20%引", "hours_obon": "9:30-17:00", "holiday_obon": "8/12(火), 8/25(月)" },
+      { "id": 70, "name": "清澄庭園", "score": 30, "area": "墨田・深川・臨海エリア", "lat": 35.679944, "lon": 139.797722, "details": "入場 | 200円 | -", "discountText": "200円", "hours_obon": "9:00-17:00", "holiday_obon": "なし" },
+      { "id": 71, "name": "東京都現代美術館", "score": 65, "area": "墨田・深川・臨海エリア", "lat": 35.6797248, "lon": 139.8080665, "details": "入場 | 500円 | 15日サマーナイトイベント", "discountText": "500円", "hours_obon": "10:00-18:00 (金曜は21:00まで)", "holiday_obon": "8/12(火)" },
+      { "id": 72, "name": "江東区深川江戸資料館", "score": 36, "area": "墨田・深川・臨海エリア", "lat": 35.68129346, "lon": 139.80051933, "details": "入場 | 400円 | 江戸の生活を体感。", "discountText": "400円", "hours_obon": "9:30-17:00 (8/15-17は夜間開館あり)", "holiday_obon": "8/25(月)" },
+      { "id": 73, "name": "江東区中川船番所資料館", "score": 28, "area": "墨田・深川・臨海エリア", "lat": 35.687667, "lon": 139.846278, "details": "入場 | 200円 | 船番所の歴史。", "discountText": "200円", "hours_obon": "9:30-17:00 (8/11は夜間開館あり)", "holiday_obon": "8/1-8/7は臨時休館" },
+      { "id": 74, "name": "地下鉄博物館", "score": 35, "area": "墨田・深川・臨海エリア", "lat": 35.6635668, "lon": 139.8734375, "details": "入場 | 220円 | 子供連れに人気。", "discountText": "220円", "hours_obon": "10:00-17:00", "holiday_obon": "8/11(月祝), 8/12(火)" },
+      { "id": 75, "name": "葛西臨海水族園", "score": 60, "area": "墨田・深川・臨海エリア", "lat": 35.64001175, "lon": 139.86221496, "details": "入場 | 700円 | 家族連れに人気。マグロの回遊は圧巻。", "discountText": "700円", "hours_obon": "9:30-17:00 (8/10-14は20:00まで延長)", "holiday_obon": "なし" },
+      { "id": 76, "name": "夢の島熱帯植物館", "score": 35, "area": "墨田・深川・臨海エリア", "lat": 35.6513, "lon": 139.8293, "details": "入場 | 250円 | 熱帯植物に癒される。", "discountText": "250円", "hours_obon": "9:30-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 77, "name": "日本科学未来館", "score": 45, "area": "墨田・深川・臨海エリア", "lat": 35.619, "lon": 139.777, "details": "入場 | 630円 | 最先端科学に触れる。", "discountText": "630円", "hours_obon": "10:00-17:00", "holiday_obon": "なし (夏休み期間中)" },
+      { "id": 78, "name": "武蔵野市立吉祥寺美術館", "score": 45, "area": "多摩エリア", "lat": 35.70498147544918, "lon": 139.57891502480888, "details": "入場 | 300円  | 街歩きとセットで。", "discountText": "300円", "hours_obon": "10:00-19:30", "holiday_obon": "8/27(水)" },
+      { "id": 79, "name": "井の頭自然文化園", "score": 45, "area": "多摩エリア", "lat": 35.700833, "lon": 139.57275, "details": "入場 | 400円 | 動物園と彫刻園。", "discountText": "400円", "hours_obon": "9:30-17:00", "holiday_obon": "8/11(月)" },
+      { "id": 80, "name": "三鷹市美術ギャラリー", "score": 10, "area": "多摩エリア", "lat": 35.701931, "lon": 139.560819, "details": "割引 | 展覧会により異なる | 企画展次第。", "discountText": "割引", "hours_obon": "10:00-20:00", "holiday_obon": "8/12(火)" },
+      { "id": 81, "name": "三鷹市山本有三記念館", "score": 25, "area": "多摩エリア", "lat": 35.699592, "lon": 139.567626, "details": "入場 | 300円 | -", "discountText": "300円", "hours_obon": "長期休館中 (8/23-9/21は出張展示あり)", "holiday_obon": "長期休館中" },
+      { "id": 82, "name": "三鷹市吉村昭書斎", "score": 10, "area": "多摩エリア", "lat": 35.693866, "lon": 139.581556, "details": "入場 | 100円 | 文学好きに。", "discountText": "100円", "hours_obon": "10:00-17:30", "holiday_obon": "8/12(火), 8/13(水)" },
+      { "id": 83, "name": "調布市武者小路実篤記念館", "score": 15, "area": "多摩エリア", "lat": 35.67124155887136, "lon": 139.54828372480802, "details": "入場 | 200円 | 文学好きに。", "discountText": "200円", "hours_obon": "9:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 84, "name": "神代植物公園", "score": 45, "area": "多摩エリア", "lat": 35.67124155887136, "lon": 139.54828372480802, "details": "入場 | 500円 | 四季折々の自然を楽しめる。", "discountText": "500円", "hours_obon": "9:30-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 85, "name": "府中市美術館", "score": 35, "area": "多摩エリア", "lat": 35.678826, "lon": 139.492145, "details": "割引 | コレクション展200円 | 企画展の質が高い。", "discountText": "200円", "hours_obon": "10:00-17:00", "holiday_obon": "8/12(火)" },
+      { "id": 86, "name": "府中市郷土の森博物館", "score": 70, "area": "多摩エリア", "lat": 35.668566, "lon": 139.467658, "details": "入場 | 1040円 | 広大な敷地で一日楽しめる。プラネタリウムも魅力。", "discountText": "1040円", "hours_obon": "9:00-17:00", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" },
+      { "id": 87, "name": "多摩六都科学館", "score": 70, "area": "多摩エリア", "lat": 35.736125, "lon": 139.544837, "details": "入場 | 1040円 | 子供から大人まで楽しめる体験型科学館。", "discountText": "1040円", "hours_obon": "9:30-17:00", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" },
+      { "id": 88, "name": "江戸東京たてもの園", "score": 45, "area": "多摩エリア", "lat": 35.732462, "lon": 139.537391, "details": "入場 | 400円 | 歴史的建造物を楽しめる。", "discountText": "400円", "hours_obon": "9:30-17:30", "holiday_obon": "8/18(月),8/25(月)休園（8/11祝日は開園）" },
+      { "id": 89, "name": "小平市平櫛田中彫刻美術館", "score": 35, "area": "多摩エリア", "lat": 35.734541, "lon": 139.479443, "details": "入場 | 300円 | 彫刻家の旧宅。", "discountText": "300円", "hours_obon": "10:00-16:00", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" },
+      { "id": 90, "name": "殿ヶ谷戸庭園", "score": 39, "area": "多摩エリア", "lat": 35.703238, "lon": 139.481057, "details": "入場 | 150円 | 駅近の美しい庭園。", "discountText": "150円", "hours_obon": "9:00-17:00", "holiday_obon": "無休（年末年始のみ休園）" },
+      { "id": 91, "name": "たましん美術館", "score": 35, "area": "多摩エリア", "lat": 35.693861, "lon": 139.422345, "details": "入場 | 500円 | 【企画展】阪本牙城 タンク・タンクロー展。", "discountText": "500円", "hours_obon": "10:00-18:00", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" },
+      { "id": 92, "name": "多摩動物公園", "score": 55, "area": "多摩エリア", "lat": 35.652308, "lon": 139.405499, "details": "入場 | 600円 | 広大な敷地が魅力だが、一日がかりになる。", "discountText": "600円", "hours_obon": "9:30-17:00", "holiday_obon": "無休（年末年始のみ休園）" },
+      { "id": 93, "name": "八王子市夢美術館", "score": 70, "area": "多摩エリア", "lat": 35.655275, "lon": 139.338757, "details": "入場 | 800円 | 【企画展】ますむらひろしの銀河鉄道の夜。駅からのアクセスは良い。", "discountText": "800円", "hours_obon": "10:00-19:00", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" },
+      { "id": 94, "name": "東京富士美術館", "score": 78, "area": "多摩エリア", "lat": 35.662032, "lon": 139.315605, "details": "入場 | 1500円 | 【企画展】手塚治虫展。圧巻のコレクション。", "discountText": "1500円", "hours_obon": "10:00-17:00", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" },
+      { "id": 95, "name": "町田市立国際版画美術館", "score": 70, "area": "多摩エリア", "lat": 35.550402, "lon": 139.446612, "details": "入場 | 800円 | 【企画展】版画ってアートなの？ アクセスはやや不便だが奥深い。", "discountText": "800円", "hours_obon": "10:00-17:00", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" },
+      { "id": 96, "name": "そごう美術館", "score": 92, "area": "神奈川・千葉・埼玉", "lat": 35.465547, "lon": 139.622863, "details": "入場 | 1500円 | 【企画展】Ukiyo-e猫百科 ごろごろまるまるネコづくし。横浜駅直結。", "discountText": "1500円", "hours_obon": "10:00-20:00", "holiday_obon": "無休（そごう横浜店休業日に準じる）" },
+      { "id": 97, "name": "帆船日本丸・横浜みなと博物館", "score": 85, "area": "神奈川・千葉・埼玉", "lat": 35.457592, "lon": 139.635818, "details": "入場 | 800円 | みなとみらいの観光とセットで楽しめる。体験価値が高い。", "discountText": "800円", "hours_obon": "10:00-17:00", "holiday_obon": "8/19(火)（月曜祝日の翌日休館）" },
+      { "id": 98, "name": "横浜ユーラシア文化館", "score": 55, "area": "神奈川・千葉・埼玉", "lat": 35.444447, "lon": 139.640462, "details": "入場 | 200円 | 【要注目】常設展が無料に。スコア大幅UPで周遊の価値向上。", "discountText": "200円", "hours_obon": "9:30-17:00", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" },
+      { "id": 99, "name": "横浜開港資料館", "score": 75, "area": "神奈川・千葉・埼玉", "lat": 35.447582, "lon": 139.643093, "details": "入場 | 800円 | 横浜の歴史を深く知るなら外せない。", "discountText": "800円", "hours_obon": "9:30-17:00", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" },
+      { "id": 100, "name": "千葉市美術館", "score": 35, "area": "神奈川・千葉・埼玉", "lat": 35.607346, "lon": 140.123785, "details": "入場 | 300円 | 企画展が充実。", "discountText": "300円", "hours_obon": "10:00-18:00", "holiday_obon": "8/19(火)（月曜祝日の翌日休館）" },
+      { "id": 101, "name": "埼玉県立近代美術館", "score": 68, "area": "神奈川・千葉・埼玉", "lat": 35.8736, "lon": 139.647546, "details": "入場 | 1400円 | アクセス面で減点:企画展：Nerhol 種蒔きと烏 Misreading Righteousness", "discountText": "1400円", "hours_obon": "10:00-17:30", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" },
+      { "id": 102, "name": "埼玉県立歴史と民俗の博物館", "score": 40, "area": "神奈川・千葉・埼玉", "lat": 35.913065, "lon": 139.62778, "details": "入場 | 700円 | アクセス面で減点。埼玉の歴史を学ぶなら。", "discountText": "700円", "hours_obon": "9:00-16:30", "holiday_obon": "8/18(月),8/25(月)休館（8/11祝日は開館）" }
+    ];
+
+    // --- DOM Elements ---
+    const facilityList = document.getElementById('facility-list');
+    const searchBox = document.getElementById('search-box');
+    const sortByScoreBtn = document.getElementById('sort-by-score');
+    const sortByNameBtn = document.getElementById('sort-by-name');
+
+    // --- Map & Layer Initialization ---
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    });
+    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri'
+    });
+    const terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+	    attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
+    });
+
+    const map = L.map('map', { center: [35.6895, 139.6917], zoom: 10, layers: [osm] });
+    const baseMaps = { "標準": osm, "航空写真": satellite, "地形": terrain };
+    
+    // --- (FIX) Simplified Layer Management ---
+    // Create a layer group for each area. These will be controlled by the layer control.
+    const areaLayers = {};
+    const uniqueAreas = [...new Set(facilitiesData.map(f => f.area))];
+    uniqueAreas.forEach(area => {
+        // Create the layer group and add it to the map so it's visible by default
+        areaLayers[area] = L.layerGroup().addTo(map);
+    });
+
+    let currentSort = { key: 'score', ascending: false };
+
+    // --- Helper Functions ---
+    function getScoreColor(score) {
+        if (score > 90) return '#ef4444'; if (score > 75) return '#f97316'; if (score > 60) return '#eab308'; if (score > 40) return '#22c55e'; return '#3b82f6';
+    }
+    function createColoredIcon(color) {
+        return L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-color:${color};" class="w-4 h-4 rounded-full border-2 border-white shadow-md"></div>`,
+            iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -8]
+        });
+    }
+
+    // --- Core Rendering Function ---
+    function renderListAndMarkers(facilities) {
+        facilityList.innerHTML = '';
+        // (FIX) Clear all markers from each area layer before re-rendering
+        for (const area in areaLayers) {
+            areaLayers[area].clearLayers();
+        }
+
+        if (facilities.length === 0) {
+            facilityList.innerHTML = '<p class="p-4 text-center text-gray-500">該当する施設はありません。</p>';
+            return;
+        }
+
+        facilities.forEach(facility => {
+            // (FIX) Check if the facility's area has a corresponding layer group
+            if (facility.lat && facility.lon && facility.score > 0 && areaLayers[facility.area]) {
+                const color = getScoreColor(facility.score);
+                
+                // --- Create Marker with updated popup ---
+                const icon = createColoredIcon(color);
+                const marker = L.marker([facility.lat, facility.lon], { icon: icon });
+                const popupContent = `
+                    <div class="space-y-1">
+                        <h3 class="font-bold text-base text-gray-800">${facility.name}</h3>
+                        <p class="text-sm text-gray-600"><strong class="font-semibold text-gray-700">スコア:</strong> <span style="color:${color};" class="font-bold">${facility.score}</span></p>
+                        <p class="text-sm text-gray-600"><strong class="font-semibold text-gray-700">エリア:</strong> ${facility.area}</p>
+                        <p class="text-sm text-gray-600"><strong class="font-semibold text-gray-700">詳細:</strong> ${facility.details || '情報なし'}</p>
+                        <hr class="my-2">
+                        <p class="text-xs text-gray-500"><strong class="font-semibold text-gray-600">お盆開館時間:</strong> ${facility.hours_obon || '情報なし'}</p>
+                        <p class="text-xs text-red-500"><strong class="font-semibold text-red-600">お盆休館日:</strong> ${facility.holiday_obon || '情報なし'}</p>
+                    </div>
+                `;
+                marker.bindPopup(popupContent);
+                // (FIX) Add the marker to its specific area layer
+                marker.addTo(areaLayers[facility.area]);
+
+                // --- Create List Item with updated layout ---
+                const listItem = document.createElement('div');
+                listItem.className = 'p-3 mb-2 bg-white rounded-lg shadow-sm cursor-pointer hover:bg-blue-50 transition-colors duration-200 border-l-4';
+                listItem.style.borderLeftColor = color;
+                listItem.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1 pr-2">
+                            <h4 class="font-semibold text-gray-900 leading-tight">${facility.name}</h4>
+                            <span class="text-xs text-gray-500">${facility.discountText}</span>
+                        </div>
+                        <span class="font-bold text-lg" style="color:${color};">${facility.score}</span>
+                    </div>
+                `;
+                listItem.addEventListener('click', () => {
+                    map.setView([facility.lat, facility.lon], 15);
+                    marker.openPopup();
+                });
+                facilityList.appendChild(listItem);
+            }
+        });
+    }
+    
+    // --- Update View (Filter/Sort) ---
+    function updateView() {
+        let filteredData = facilitiesData;
+        const searchTerm = searchBox.value.toLowerCase();
+        if (searchTerm) {
+            filteredData = facilitiesData.filter(f => f.name.toLowerCase().includes(searchTerm));
+        }
+        filteredData.sort((a, b) => {
+            if (currentSort.key === 'score') return currentSort.ascending ? a.score - b.score : b.score - a.score;
+            if (currentSort.key === 'name') return currentSort.ascending ? a.name.localeCompare(b.name, 'ja') : b.name.localeCompare(a.name, 'ja');
+            return 0;
+        });
+        renderListAndMarkers(filteredData);
+    }
+    
+    // --- Event Listeners ---
+    searchBox.addEventListener('input', updateView);
+    sortByScoreBtn.addEventListener('click', () => {
+        currentSort.key === 'score' ? currentSort.ascending = !currentSort.ascending : (currentSort = { key: 'score', ascending: false });
+        sortByScoreBtn.classList.add('active');
+        sortByNameBtn.classList.remove('active');
+        updateView();
+    });
+    sortByNameBtn.addEventListener('click', () => {
+        currentSort.key === 'name' ? currentSort.ascending = !currentSort.ascending : (currentSort = { key: 'name', ascending: true });
+        sortByNameBtn.classList.add('active');
+        sortByScoreBtn.classList.remove('active');
+        updateView();
+    });
+
+    // --- Initial Load ---
+    // (FIX) The layer control now uses the dynamically populated areaLayers
+    L.control.layers(baseMaps, areaLayers, { collapsed: true }).addTo(map);
+    sortByScoreBtn.classList.add('active');
+    updateView();
+
+</script>
+</body>
+</html>
